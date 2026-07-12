@@ -12,6 +12,7 @@ import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
+import kotlinx.datetime.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -40,13 +41,14 @@ class SyncEngineTest {
             storageAdapter = storage,
             transportAdapter = transport,
             retryPolicy = retryPolicy,
+            conflictResolver = LastWriteWinsConflictResolver(),
         )
         engine.start()
 
         val entity = SyncEntity(
             id = "entity-1",
             version = 0L,
-            updatedAt = 0L,
+            updatedAt = Instant.fromEpochMilliseconds(0L),
             deleted = false,
             syncState = SyncState.PendingUpload,
             payload = byteArrayOf(1),
@@ -81,7 +83,7 @@ class SyncEngineTest {
         val remoteEntity = SyncEntity(
             id = "entity-1",
             version = 2L,
-            updatedAt = 2000L,
+            updatedAt = Instant.fromEpochMilliseconds(2000L),
             deleted = false,
             syncState = SyncState.Synced,
             payload = byteArrayOf(2),
@@ -99,13 +101,14 @@ class SyncEngineTest {
             storageAdapter = storage,
             transportAdapter = transport,
             retryPolicy = retryPolicy,
+            conflictResolver = LastWriteWinsConflictResolver(),
         )
         engine.start()
 
         val entity = SyncEntity(
             id = "entity-1",
             version = 1L,
-            updatedAt = 1000L,
+            updatedAt = Instant.fromEpochMilliseconds(1000L),
             deleted = false,
             syncState = SyncState.PendingUpload,
             payload = byteArrayOf(1),
@@ -127,7 +130,7 @@ class SyncEngineTest {
 
         val written = storage.entities["entity-1"]
         assertNotNull(written)
-        assertEquals(SyncState.Conflict, written.syncState)
+        assertEquals(SyncState.Synced, written.syncState)
 
         engine.stop()
     }
@@ -149,13 +152,14 @@ class SyncEngineTest {
             storageAdapter = storage,
             transportAdapter = transport,
             retryPolicy = retryPolicy,
+            conflictResolver = LastWriteWinsConflictResolver(),
         )
         engine.start()
 
         val entity = SyncEntity(
             id = "entity-1",
             version = 0L,
-            updatedAt = 0L,
+            updatedAt = Instant.fromEpochMilliseconds(0L),
             deleted = false,
             syncState = SyncState.PendingUpload,
             payload = byteArrayOf(1),
@@ -182,6 +186,50 @@ class SyncEngineTest {
         engine.stop()
     }
 
+    @Test
+    fun pullAndSyncStoresEntities() = runTest {
+        val storage = FakeStorage()
+        val transport = FakeTransport()
+        val pulledEntity = SyncEntity(
+            id = "pulled-1",
+            version = 1L,
+            updatedAt = Instant.fromEpochMilliseconds(1000L),
+            deleted = false,
+            syncState = SyncState.Synced,
+            payload = byteArrayOf(1),
+        )
+        transport.pullResult = dev.esteki.kmos.sync.core.model.PullResult(
+            entities = listOf(pulledEntity),
+            nextCursor = null,
+        )
+
+        val commandChannel = Channel<SyncCommand>(Channel.BUFFERED)
+        val retryPolicy = ExponentialBackoffRetryPolicy(maxAttempts = 3)
+        val queue = OperationQueue(retryPolicy)
+
+        val engine = SyncEngine(
+            scope = testScope,
+            commandChannel = commandChannel,
+            operationQueue = queue,
+            storageAdapter = storage,
+            transportAdapter = transport,
+            retryPolicy = retryPolicy,
+            conflictResolver = LastWriteWinsConflictResolver(),
+        )
+        engine.start()
+
+        commandChannel.send(SyncCommand.PullAndSync)
+
+        testScope.testScheduler.advanceUntilIdle()
+
+        val written = storage.entities["pulled-1"]
+        assertNotNull(written)
+        assertEquals("pulled-1", written.id)
+        assertEquals(1L, written.version)
+
+        engine.stop()
+    }
+
     private class FakeStorage : StorageAdapter {
         val entities = mutableMapOf<String, SyncEntity>()
 
@@ -195,9 +243,9 @@ class SyncEngineTest {
 
     private class FakeTransport : TransportAdapter {
         var pushResult: PushResult = PushResult.Success(1L)
+        var pullResult: dev.esteki.kmos.sync.core.model.PullResult = dev.esteki.kmos.sync.core.model.PullResult(emptyList(), null)
 
         override suspend fun push(op: SyncOperation): PushResult = pushResult
-        override suspend fun pull(cursor: String?): dev.esteki.kmos.sync.core.model.PullResult =
-            dev.esteki.kmos.sync.core.model.PullResult(emptyList(), null)
+        override suspend fun pull(cursor: String?): dev.esteki.kmos.sync.core.model.PullResult = pullResult
     }
 }

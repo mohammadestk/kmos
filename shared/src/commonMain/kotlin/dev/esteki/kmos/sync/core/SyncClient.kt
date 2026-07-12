@@ -1,5 +1,6 @@
 package dev.esteki.kmos.sync.core
 
+import dev.esteki.kmos.sync.core.model.SyncEntity
 import dev.esteki.kmos.sync.core.model.SyncOperation
 import dev.esteki.kmos.sync.core.model.SyncState
 import kotlinx.coroutines.CoroutineScope
@@ -75,15 +76,18 @@ class SyncClient private constructor(
         private var storageAdapter: StorageAdapter? = null
         private var transportAdapter: TransportAdapter? = null
         private var retryPolicy: RetryPolicy? = null
+        private var conflictResolver: ConflictResolver<SyncEntity>? = null
 
         fun storage(adapter: StorageAdapter) = apply { this.storageAdapter = adapter }
         fun transport(adapter: TransportAdapter) = apply { this.transportAdapter = adapter }
         fun retry(policy: RetryPolicy) = apply { this.retryPolicy = policy }
+        fun conflictResolver(resolver: ConflictResolver<SyncEntity>) = apply { this.conflictResolver = resolver }
 
         fun build(scope: CoroutineScope): SyncClient {
             val storage = requireNotNull(storageAdapter) { "StorageAdapter is required" }
             val transport = requireNotNull(transportAdapter) { "TransportAdapter is required" }
             val retry = retryPolicy ?: ExponentialBackoffRetryPolicy()
+            val resolver = conflictResolver ?: LastWriteWinsConflictResolver()
 
             val commandChannel = Channel<SyncCommand>(Channel.BUFFERED)
             val queue = OperationQueue(retry)
@@ -94,6 +98,7 @@ class SyncClient private constructor(
                 storageAdapter = storage,
                 transportAdapter = transport,
                 retryPolicy = retry,
+                conflictResolver = resolver,
             )
 
             return SyncClient(

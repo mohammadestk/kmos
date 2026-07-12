@@ -1,5 +1,8 @@
 package dev.esteki.kmos.sync.core
 
+import dev.esteki.kmos.sync.core.model.SyncEntity
+import dev.esteki.kmos.sync.core.model.SyncState
+import kotlinx.datetime.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -9,37 +12,44 @@ class LastWriteWinsConflictResolverTest {
 
     @Test
     fun newerLocalWins() {
-        val local = TestEntity(updatedAt = 2000L)
-        val remote = TestEntity(updatedAt = 1000L)
+        val local = createEntity("local", updatedAt = Instant.fromEpochMilliseconds(2000L))
+        val remote = createEntity("remote", updatedAt = Instant.fromEpochMilliseconds(1000L))
 
         val resolved = resolver.resolve(local, remote)
 
-        assertEquals(2000L, resolved.updatedAt)
+        assertEquals(Instant.fromEpochMilliseconds(2000L), resolved.updatedAt)
     }
 
     @Test
     fun newerRemoteWins() {
-        val local = TestEntity(updatedAt = 1000L)
-        val remote = TestEntity(updatedAt = 2000L)
+        val local = createEntity("local", updatedAt = Instant.fromEpochMilliseconds(1000L))
+        val remote = createEntity("remote", updatedAt = Instant.fromEpochMilliseconds(2000L))
 
         val resolved = resolver.resolve(local, remote)
 
-        assertEquals(2000L, resolved.updatedAt)
+        assertEquals(Instant.fromEpochMilliseconds(2000L), resolved.updatedAt)
     }
 
     @Test
     fun equalTimestampsLocalWins() {
-        val local = TestEntity(updatedAt = 1000L, id = "local")
-        val remote = TestEntity(updatedAt = 1000L, id = "remote")
+        val local = createEntity("local", updatedAt = Instant.fromEpochMilliseconds(1000L))
+        val remote = createEntity("remote", updatedAt = Instant.fromEpochMilliseconds(1000L))
 
-        val resolved = resolver.resolve(local, remote) as TestEntity
+        val resolved = resolver.resolve(local, remote)
 
-        assertEquals(1000L, resolved.updatedAt)
+        assertEquals(Instant.fromEpochMilliseconds(1000L), resolved.updatedAt)
         assertEquals("local", resolved.id)
     }
 
-    private data class TestEntity(
-        override val updatedAt: Long,
-        val id: String = "local",
-    ) : SyncEntityWithTimestamp
+    private fun createEntity(
+        id: String,
+        updatedAt: Instant,
+    ) = SyncEntity(
+        id = id,
+        version = 1L,
+        updatedAt = updatedAt,
+        deleted = false,
+        syncState = SyncState.LocalOnly,
+        payload = byteArrayOf(),
+    )
 }

@@ -1,0 +1,15 @@
+package dev.esteki.kmos.sync.storage
+
+import androidx.room3.Room
+import androidx.sqlite.driver.bundled.BundledSQLiteDriver
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.IO
+
+actual fun createDatabase(name: String): SyncDatabase {
+    return Room.databaseBuilder<SyncDatabase>(
+        name = name,
+    )
+        .setDriver(BundledSQLiteDriver())
+        .setQueryCoroutineContext(Dispatchers.IO)
+        .build()
+}

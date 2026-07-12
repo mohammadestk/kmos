@@ -1,6 +1,7 @@
 package dev.esteki.kmos.sync.testing
 
 import dev.esteki.kmos.sync.core.ExponentialBackoffRetryPolicy
+import dev.esteki.kmos.sync.core.LastWriteWinsConflictResolver
 import dev.esteki.kmos.sync.core.OperationQueue
 import dev.esteki.kmos.sync.core.SyncCommand
 import dev.esteki.kmos.sync.core.SyncEngine
@@ -14,6 +15,7 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
+import kotlinx.datetime.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -87,6 +89,7 @@ abstract class SyncEngineContractTest {
             storageAdapter = storage,
             transportAdapter = transport,
             retryPolicy = retryPolicy,
+            conflictResolver = LastWriteWinsConflictResolver(),
         )
     }
 
@@ -102,7 +105,7 @@ abstract class SyncEngineContractTest {
     ) = SyncEntity(
         id = id,
         version = version,
-        updatedAt = 0L,
+        updatedAt = Instant.fromEpochMilliseconds(0L),
         deleted = false,
         syncState = syncState,
         payload = byteArrayOf(),

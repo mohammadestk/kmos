@@ -1,12 +1,10 @@
 package dev.esteki.kmos.sync.core
 
-class LastWriteWinsConflictResolver : ConflictResolver<SyncEntityWithTimestamp> {
+import dev.esteki.kmos.sync.core.model.SyncEntity
 
-    override fun resolve(local: SyncEntityWithTimestamp, remote: SyncEntityWithTimestamp): SyncEntityWithTimestamp {
+class LastWriteWinsConflictResolver : ConflictResolver<SyncEntity> {
+
+    override fun resolve(local: SyncEntity, remote: SyncEntity): SyncEntity {
         return if (local.updatedAt >= remote.updatedAt) local else remote
     }
-}
-
-interface SyncEntityWithTimestamp {
-    val updatedAt: Long
 }

@@ -1,5 +1,6 @@
 package dev.esteki.kmos.sync.core.model
 
+import kotlinx.datetime.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -10,7 +11,7 @@ class SyncEntityTest {
         val entity1 = SyncEntity(
             id = "id",
             version = 1L,
-            updatedAt = 0L,
+            updatedAt = Instant.fromEpochMilliseconds(0L),
             deleted = false,
             syncState = SyncState.LocalOnly,
             payload = byteArrayOf(1, 2, 3),
@@ -26,7 +27,7 @@ class SyncEntityTest {
         val entity = SyncEntity(
             id = "id",
             version = 1L,
-            updatedAt = 0L,
+            updatedAt = Instant.fromEpochMilliseconds(0L),
             deleted = false,
             syncState = SyncState.LocalOnly,
             payload = byteArrayOf(1),

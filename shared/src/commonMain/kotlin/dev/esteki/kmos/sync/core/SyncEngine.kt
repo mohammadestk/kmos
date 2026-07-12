@@ -15,8 +15,10 @@ class SyncEngine(
     private val storageAdapter: StorageAdapter,
     private val transportAdapter: TransportAdapter,
     private val retryPolicy: RetryPolicy,
+    private val conflictResolver: ConflictResolver<SyncEntity>,
 ) {
     private var engineJob: Job? = null
+    private var pullCursor: String? = null
 
     fun start() {
         engineJob = scope.launch {
@@ -27,6 +29,9 @@ class SyncEngine(
                     }
                     is SyncCommand.TriggerSync -> {
                         drainQueue()
+                    }
+                    is SyncCommand.PullAndSync -> {
+                        pullAndSync()
                     }
                     is SyncCommand.Cancel -> {
                         break
@@ -43,6 +48,24 @@ class SyncEngine(
         }
     }
 
+    private suspend fun pullAndSync() {
+        var cursor = pullCursor
+        do {
+            val result = transportAdapter.pull(cursor)
+            for (entity in result.entities) {
+                val localEntity = storageAdapter.read(entity.id)
+                val resolvedEntity = if (localEntity != null) {
+                    conflictResolver.resolve(localEntity, entity)
+                } else {
+                    entity
+                }
+                storageAdapter.write(resolvedEntity)
+            }
+            cursor = result.nextCursor
+        } while (cursor != null)
+        pullCursor = cursor
+    }
+
     private suspend fun processOperation(op: dev.esteki.kmos.sync.core.model.SyncOperation) {
         try {
             val result = transportAdapter.push(op)
@@ -55,7 +78,13 @@ class SyncEngine(
                     operationQueue.markDone(op.operationId)
                 }
                 is PushResult.Conflict -> {
-                    storageAdapter.write(result.remoteEntity.copy(syncState = SyncState.Conflict))
+                    val localEntity = storageAdapter.read(op.entityId)
+                    val resolvedEntity = if (localEntity != null) {
+                        conflictResolver.resolve(localEntity, result.remoteEntity)
+                    } else {
+                        result.remoteEntity
+                    }
+                    storageAdapter.write(resolvedEntity.copy(syncState = SyncState.Synced))
                     operationQueue.markDone(op.operationId)
                 }
                 is PushResult.Error -> {

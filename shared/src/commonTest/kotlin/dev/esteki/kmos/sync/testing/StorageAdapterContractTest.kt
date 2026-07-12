@@ -3,6 +3,7 @@ package dev.esteki.kmos.sync.testing
 import dev.esteki.kmos.sync.core.StorageAdapter
 import dev.esteki.kmos.sync.core.model.SyncEntity
 import dev.esteki.kmos.sync.core.model.SyncState
+import kotlinx.datetime.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -73,7 +74,7 @@ abstract class StorageAdapterContractTest {
     ) = SyncEntity(
         id = id,
         version = version,
-        updatedAt = 0L,
+        updatedAt = Instant.fromEpochMilliseconds(0L),
         deleted = false,
         syncState = syncState,
         payload = byteArrayOf(),

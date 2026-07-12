@@ -7,6 +7,12 @@ plugins {
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
     alias(libs.plugins.kotlinSerialization)
+    alias(libs.plugins.ksp)
+    alias(libs.plugins.room3)
+}
+
+room3 {
+    schemaDirectory("$projectDir/schemas")
 }
 
 kotlin {
@@ -31,13 +37,13 @@ kotlin {
         browser()
     }
 
-    androidLibrary {
+    android {
        namespace = "dev.esteki.kmos.shared"
        compileSdk = libs.versions.android.compileSdk.get().toInt()
        minSdk = libs.versions.android.minSdk.get().toInt()
 
        compilerOptions {
-           jvmTarget = JvmTarget.JVM_11
+           jvmTarget = JvmTarget.JVM_17
        }
        androidResources {
            enable = true
@@ -50,6 +56,7 @@ kotlin {
     sourceSets {
         androidMain.dependencies {
             implementation(libs.compose.uiToolingPreview)
+            implementation(libs.androidx.sqlite.bundled)
         }
         commonMain.dependencies {
             api(libs.compose.runtime)
@@ -67,6 +74,7 @@ kotlin {
             api(libs.ktor.client.core)
             api(libs.ktor.client.content.negotiation)
             api(libs.ktor.serialization.json)
+            api(libs.room3.runtime)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
@@ -76,12 +84,30 @@ kotlin {
             implementation(libs.ktor.client.mock)
             implementation(libs.turbine)
         }
+        webMain.dependencies {
+            implementation(libs.androidx.sqlite.web)
+            implementation(projects.sqliteWasmWorker)
+            implementation(projects.sqlJsWorker)
+        }
         jsMain.dependencies {
             implementation(libs.wrappers.browser)
+        }
+        jvmMain.dependencies {
+            implementation(libs.androidx.sqlite.bundled)
+        }
+        iosMain.dependencies {
+            implementation(libs.androidx.sqlite.bundled)
         }
     }
 }
 
 dependencies {
     androidRuntimeClasspath(libs.compose.uiTooling)
+    add("kspJvm", "androidx.room3:room3-compiler:${libs.versions.room3.get()}")
+    add("kspAndroid", "androidx.room3:room3-compiler:${libs.versions.room3.get()}")
+    add("kspJvm", "androidx.room3:room3-compiler:${libs.versions.room3.get()}")
+    add("kspJs", "androidx.room3:room3-compiler:${libs.versions.room3.get()}")
+    add("kspWasmJs", "androidx.room3:room3-compiler:${libs.versions.room3.get()}")
+    add("kspIosArm64", "androidx.room3:room3-compiler:${libs.versions.room3.get()}")
+    add("kspIosSimulatorArm64", "androidx.room3:room3-compiler:${libs.versions.room3.get()}")
 }

@@ -1,18 +1,20 @@
-package dev.esteki.kmos.sync.core.model
+package dev.esteki.kmos.sync.storage
 
-import kotlinx.datetime.Instant
+import androidx.room3.Entity
+import androidx.room3.PrimaryKey
 
-data class SyncEntity(
-    val id: String,
+@Entity(tableName = "sync_entities")
+data class SyncEntityTable(
+    @PrimaryKey val id: String,
     val version: Long,
-    val updatedAt: Instant,
+    val updatedAt: Long,
     val deleted: Boolean,
-    val syncState: SyncState,
+    val syncState: String,
     val payload: ByteArray,
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
-        if (other !is SyncEntity) return false
+        if (other !is SyncEntityTable) return false
         return id == other.id &&
             version == other.version &&
             updatedAt == other.updatedAt &&
