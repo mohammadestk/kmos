@@ -17,21 +17,21 @@
 Kmos is a **Kotlin Multiplatform SDK** for building offline-first applications with reliable, correct synchronization. Write your sync logic once in `commonMain` — it runs everywhere.
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                        YOUR APP                             │
-├─────────────────────────────────────────────────────────────┤
-│                    SyncRepository<T>                        │
-│                     (typed APIs)                            │
-├─────────────────────────────────────────────────────────────┤
-│                     Sync Engine                             │
-│         ┌───────────┴───────────┴───────────┐              │
-│         ▼               ▼                   ▼              │
-│   Operation Queue   Retry Policy    Conflict Resolver      │
-│    (idempotent)    (backoff+jitter)    (LWW/Custom)        │
-├─────────────────────────────────────────────────────────────┤
-│    StorageAdapter          TransportAdapter                 │
-│       (Room 3)                 (Ktor)                      │
-└─────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│                           YOUR APP                               │
+├──────────────────────────────────────────────────────────────────┤
+│                      SyncRepository<T>                           │
+│                       (typed APIs)                               │
+├──────────────────────────────────────────────────────────────────┤
+│                        Sync Engine                               │
+│            ┌─────────────┼─────────────┐                        │
+│            ▼             ▼             ▼                        │
+│     Operation Queue  Retry Policy  Conflict Resolver            │
+│      (idempotent)   (backoff+jitter) (LWW/Custom)              │
+├──────────────────────────────────────────────────────────────────┤
+│     StorageAdapter                TransportAdapter               │
+│        (Room 3)                       (Ktor)                    │
+└──────────────────────────────────────────────────────────────────┘
 ```
 
 ---
