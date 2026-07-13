@@ -12,14 +12,17 @@ import dev.esteki.kmos.sync.network.KtorTransportAdapter
 import dev.esteki.kmos.sync.storage.RoomStorageAdapter
 import dev.esteki.kmos.sync.storage.SyncDatabase
 import dev.esteki.kmos.sync.storage.createDatabase
+import io.ktor.client.HttpClient
 import org.koin.dsl.module
 
 fun syncModule(
     databaseName: String = "sync.db",
+    httpClient: HttpClient = HttpClient(),
+    baseUrl: String = "https://api.restful-api.dev",
 ) = module {
     single<SyncDatabase> { createDatabase(databaseName) }
     single<StorageAdapter> { RoomStorageAdapter(get()) }
-    single<TransportAdapter> { KtorTransportAdapter() }
+    single<TransportAdapter> { KtorTransportAdapter(httpClient, baseUrl) }
     single<RetryPolicy> { ExponentialBackoffRetryPolicy() }
     single<ConflictResolver<SyncEntity>> { LastWriteWinsConflictResolver() }
     single<SyncClient> { params ->

@@ -6,20 +6,28 @@ import dev.esteki.kmos.sync.core.StorageAdapter
 import dev.esteki.kmos.sync.core.SyncClient
 import dev.esteki.kmos.sync.core.TransportAdapter
 import dev.esteki.kmos.sync.network.KtorTransportAdapter
+import io.ktor.client.HttpClient
 import kotlinx.coroutines.CoroutineScope
 
 class SyncClientBuilder {
     private var storageAdapter: StorageAdapter? = null
     private var transportAdapter: TransportAdapter? = null
     private var retryPolicy: RetryPolicy? = null
+    private var httpClient: HttpClient? = null
+    private var baseUrl: String = "https://api.restful-api.dev"
 
     fun storage(adapter: StorageAdapter) = apply { this.storageAdapter = adapter }
     fun transport(adapter: TransportAdapter) = apply { this.transportAdapter = adapter }
     fun retry(policy: RetryPolicy) = apply { this.retryPolicy = policy }
+    fun httpClient(client: HttpClient) = apply { this.httpClient = client }
+    fun baseUrl(url: String) = apply { this.baseUrl = url }
 
     fun build(scope: CoroutineScope): SyncClient {
         val storage = requireNotNull(storageAdapter) { "StorageAdapter is required" }
-        val transport = transportAdapter ?: KtorTransportAdapter()
+        val transport = transportAdapter ?: run {
+            val client = httpClient ?: HttpClient()
+            KtorTransportAdapter(client, baseUrl)
+        }
         val retry = retryPolicy ?: ExponentialBackoffRetryPolicy()
 
         return SyncClient.build(scope) {

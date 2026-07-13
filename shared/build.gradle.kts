@@ -91,12 +91,15 @@ kotlin {
         }
         jsMain.dependencies {
             implementation(libs.wrappers.browser)
+            implementation(libs.ktor.client.js)
         }
         jvmMain.dependencies {
             implementation(libs.androidx.sqlite.bundled)
+            implementation(libs.ktor.client.cio)
         }
         iosMain.dependencies {
             implementation(libs.androidx.sqlite.bundled)
+            implementation(libs.ktor.client.darwin)
         }
     }
 }
