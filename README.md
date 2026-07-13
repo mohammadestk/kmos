@@ -1,5 +1,3 @@
-<div align="center">
-
 # ⚡ Kmos
 
 ### Kotlin Multiplatform Offline-First Sync SDK
@@ -11,8 +9,6 @@
 [![Kotlin](https://img.shields.io/badge/Kotlin-2.4.0-purple?logo=kotlin)](https://kotlinlang.org)
 [![KMP](https://img.shields.io/badge/KMP-All%20Targets-blue)](https://www.jetbrains.com/kotlin-multiplatform/)
 [![License](https://img.shields.io/badge/License-TBD-green)](#license)
-
-</div>
 
 ---
 
@@ -297,8 +293,4 @@ License TBD.
 
 ---
 
-<div align="center">
-
 **Built with ❤️ using Kotlin Multiplatform**
-
-</div>
