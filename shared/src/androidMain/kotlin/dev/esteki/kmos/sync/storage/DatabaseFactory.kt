@@ -12,10 +12,3 @@ actual fun createDatabase(name: String): SyncDatabase {
         .setQueryCoroutineContext(Dispatchers.IO)
         .build()
 }
-
-actual fun createInMemoryDatabase(): SyncDatabase {
-    return Room.inMemoryDatabaseBuilder<SyncDatabase>()
-        .setDriver(BundledSQLiteDriver())
-        .setQueryCoroutineContext(Dispatchers.IO)
-        .build()
-}
