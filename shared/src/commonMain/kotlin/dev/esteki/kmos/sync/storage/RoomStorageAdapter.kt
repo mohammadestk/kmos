@@ -3,7 +3,7 @@ package dev.esteki.kmos.sync.storage
 import dev.esteki.kmos.sync.core.StorageAdapter
 import dev.esteki.kmos.sync.core.model.SyncEntity
 import dev.esteki.kmos.sync.core.model.SyncState
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 
 class RoomStorageAdapter(
     private val database: SyncDatabase,

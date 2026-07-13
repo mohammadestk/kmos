@@ -1,6 +1,6 @@
 package dev.esteki.kmos.sync.core.model
 
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
 

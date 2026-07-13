@@ -1,6 +1,6 @@
 package dev.esteki.kmos.sync.core.model
 
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 
 data class SyncEntity(
     val id: String,
