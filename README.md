@@ -6,6 +6,8 @@
 
 **Reliable synchronization. One codebase. Six platforms.**
 
+> 🚧 **Status: In Progress** — This SDK is actively under development. APIs may change.
+
 [![Kotlin](https://img.shields.io/badge/Kotlin-2.4.0-purple?logo=kotlin)](https://kotlinlang.org)
 [![KMP](https://img.shields.io/badge/KMP-All%20Targets-blue)](https://www.jetbrains.com/kotlin-multiplatform/)
 [![License](https://img.shields.io/badge/License-TBD-green)](#license)
