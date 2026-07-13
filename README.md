@@ -24,13 +24,13 @@ Kmos is a **Kotlin Multiplatform SDK** for building offline-first applications w
 │                       (typed APIs)                               │
 ├──────────────────────────────────────────────────────────────────┤
 │                        Sync Engine                               │
-│            ┌─────────────┼─────────────┐                        │
-│            ▼             ▼             ▼                        │
-│     Operation Queue  Retry Policy  Conflict Resolver            │
-│      (idempotent)   (backoff+jitter) (LWW/Custom)              │
+│            ┌─────────────┼─────────────┐                         │
+│            ▼             ▼             ▼                         │
+│     Operation Queue  Retry Policy  Conflict Resolver             │
+│      (idempotent)   (backoff+jitter) (LWW/Custom)                │
 ├──────────────────────────────────────────────────────────────────┤
 │     StorageAdapter                TransportAdapter               │
-│        (Room 3)                       (Ktor)                    │
+│        (Room 3)                       (Ktor)                     │
 └──────────────────────────────────────────────────────────────────┘
 ```
 
