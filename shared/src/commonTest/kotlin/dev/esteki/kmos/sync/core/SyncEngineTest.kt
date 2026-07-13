@@ -237,6 +237,9 @@ class SyncEngineTest {
         override suspend fun write(entity: SyncEntity) {
             entities[entity.id] = entity
         }
+        override suspend fun delete(id: String) {
+            entities.remove(id)
+        }
         override suspend fun queryPending(): List<SyncEntity> =
             entities.values.filter { it.syncState == SyncState.PendingUpload }
     }

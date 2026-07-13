@@ -20,6 +20,10 @@ class OperationQueue(
         }
     }
 
+    /**
+     * Returns a snapshot of all operations in the queue without removing them.
+     * This is a non-destructive peek operation.
+     */
     suspend fun dequeuePending(): List<SyncOperation> = mutex.withLock {
         operations.toList()
     }
@@ -28,11 +32,16 @@ class OperationQueue(
         operations.removeAll { it.operationId == operationId }
     }
 
+    suspend fun remove(operationId: String) = mutex.withLock {
+        operations.removeAll { it.operationId == operationId }
+    }
+
     suspend fun markFailed(operationId: String, error: SyncError = SyncError.NetworkTimeout) = mutex.withLock {
         val index = operations.indexOfFirst { it.operationId == operationId }
         if (index >= 0) {
             val op = operations[index]
             val newAttempt = op.attempt + 1
+            // Dead-letter if retry policy says so (e.g., max attempts reached)
             if (retryPolicy.shouldDeadLetter(newAttempt, error)) {
                 operations.removeAt(index)
             } else {

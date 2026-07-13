@@ -2,10 +2,14 @@ package dev.esteki.kmos.sync.core
 
 import dev.esteki.kmos.sync.core.model.PushResult
 import dev.esteki.kmos.sync.core.model.SyncEntity
+import dev.esteki.kmos.sync.core.model.SyncError
+import dev.esteki.kmos.sync.core.model.SyncOperation
 import dev.esteki.kmos.sync.core.model.SyncState
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 class SyncEngine(
@@ -49,6 +53,7 @@ class SyncEngine(
     }
 
     private suspend fun pullAndSync() {
+        // Fetch all pages using cursor-based pagination
         var cursor = pullCursor
         do {
             val result = transportAdapter.pull(cursor)
@@ -63,7 +68,8 @@ class SyncEngine(
             }
             cursor = result.nextCursor
         } while (cursor != null)
-        pullCursor = cursor
+        // Reset cursor after fetching all pages
+        pullCursor = null
     }
 
     private suspend fun processOperation(op: dev.esteki.kmos.sync.core.model.SyncOperation) {
@@ -78,6 +84,7 @@ class SyncEngine(
                     operationQueue.markDone(op.operationId)
                 }
                 is PushResult.Conflict -> {
+                    // TODO: Consider operation payload when resolving conflicts
                     val localEntity = storageAdapter.read(op.entityId)
                     val resolvedEntity = if (localEntity != null) {
                         conflictResolver.resolve(localEntity, result.remoteEntity)
@@ -88,11 +95,43 @@ class SyncEngine(
                     operationQueue.markDone(op.operationId)
                 }
                 is PushResult.Error -> {
-                    operationQueue.markFailed(op.operationId)
+                    val attempt = op.attempt + 1
+                    if (retryPolicy.shouldDeadLetter(attempt, result.error)) {
+                        // Dead-letter: mark operation as failed and update entity syncState
+                        operationQueue.markFailed(op.operationId, result.error)
+                        val entity = storageAdapter.read(op.entityId)
+                        if (entity != null) {
+                            storageAdapter.write(entity.copy(syncState = SyncState.Failed))
+                        }
+                    } else {
+                        val delay = retryPolicy.nextDelay(attempt)
+                        operationQueue.remove(op.operationId)
+                        scope.launch {
+                            delay(delay)
+                            commandChannel.send(SyncCommand.Enqueue(op.copy(attempt = attempt)))
+                        }
+                    }
                 }
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
-            operationQueue.markFailed(op.operationId)
+            val attempt = op.attempt + 1
+            if (retryPolicy.shouldDeadLetter(attempt, SyncError.Unknown(e))) {
+                // Dead-letter: mark operation as failed and update entity syncState
+                operationQueue.markFailed(op.operationId, SyncError.Unknown(e))
+                val entity = storageAdapter.read(op.entityId)
+                if (entity != null) {
+                    storageAdapter.write(entity.copy(syncState = SyncState.Failed))
+                }
+            } else {
+                val delay = retryPolicy.nextDelay(attempt)
+                operationQueue.remove(op.operationId)
+                scope.launch {
+                    delay(delay)
+                    commandChannel.send(SyncCommand.Enqueue(op.copy(attempt = attempt)))
+                }
+            }
         }
     }
 

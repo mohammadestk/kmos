@@ -1,6 +1,5 @@
 package dev.esteki.kmos.sync.trigger
 
-import dev.esteki.kmos.sync.core.SyncCommand
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay

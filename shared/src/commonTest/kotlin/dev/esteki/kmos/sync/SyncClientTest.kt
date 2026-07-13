@@ -2,6 +2,8 @@ package dev.esteki.kmos.sync
 
 import dev.esteki.kmos.sync.core.ExponentialBackoffRetryPolicy
 import dev.esteki.kmos.sync.core.SyncClient
+import dev.esteki.kmos.sync.core.model.SyncEntity
+import dev.esteki.kmos.sync.core.model.SyncState
 import dev.esteki.kmos.sync.testing.FakeStorageAdapter
 import dev.esteki.kmos.sync.testing.FakeTransportAdapter
 import kotlinx.coroutines.flow.first
@@ -10,6 +12,7 @@ import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
+import kotlin.time.Instant
 
 class SyncClientTest {
 
@@ -134,5 +137,61 @@ class SyncClientTest {
         }
 
         assertEquals(emptyList(), client.failedOperations.value)
+    }
+
+    @Test
+    fun retryEnqueuesOperation() = runTest {
+        val storage = FakeStorageAdapter()
+        val transport = FakeTransportAdapter()
+
+        val client = SyncClient.build(this) {
+            storage(storage)
+            transport(transport)
+        }
+
+        client.start()
+
+        val entity = SyncEntity(
+            id = "entity-1",
+            version = 0L,
+            updatedAt = Instant.fromEpochMilliseconds(0L),
+            deleted = false,
+            syncState = SyncState.Failed,
+            payload = byteArrayOf(1),
+        )
+        storage.write(entity)
+
+        client.retry(entity)
+        // Wait for retry to be processed
+        kotlinx.coroutines.delay(100)
+        client.stop()
+    }
+
+    @Test
+    fun discardRemovesEntityFromFailed() = runTest {
+        val storage = FakeStorageAdapter()
+        val transport = FakeTransportAdapter()
+
+        val client = SyncClient.build(this) {
+            storage(storage)
+            transport(transport)
+        }
+
+        client.start()
+
+        val entity = SyncEntity(
+            id = "entity-1",
+            version = 0L,
+            updatedAt = Instant.fromEpochMilliseconds(0L),
+            deleted = false,
+            syncState = SyncState.Failed,
+            payload = byteArrayOf(1),
+        )
+        storage.write(entity)
+
+        client.discard(entity)
+        // Wait for discard to be processed
+        kotlinx.coroutines.delay(100)
+        client.stop()
     }
 }

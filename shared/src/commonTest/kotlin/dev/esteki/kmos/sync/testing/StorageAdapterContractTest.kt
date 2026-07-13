@@ -67,6 +67,18 @@ abstract class StorageAdapterContractTest {
         assertEquals(0, pending.size)
     }
 
+    @Test
+    fun deleteRemovesEntity() = kotlinx.coroutines.test.runTest {
+        val adapter = createAdapter()
+        val entity = createEntity("id-1", syncState = SyncState.LocalOnly)
+        adapter.write(entity)
+
+        adapter.delete("id-1")
+        val result = adapter.read("id-1")
+
+        assertNull(result)
+    }
+
     protected fun createEntity(
         id: String,
         version: Long = 1L,

@@ -20,6 +20,10 @@ class RoomStorageAdapter(
         dao.upsert(entity.toTable())
     }
 
+    override suspend fun delete(id: String) {
+        dao.deleteById(id)
+    }
+
     override suspend fun queryPending(): List<SyncEntity> {
         return dao.queryPending().map { it.toDomain() }
     }

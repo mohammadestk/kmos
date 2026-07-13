@@ -18,8 +18,8 @@ class SyncClient private constructor(
     private val commandChannel: Channel<SyncCommand>,
     private val engine: SyncEngine,
 ) {
-    private val _failedOperations = MutableStateFlow<List<SyncOperation>>(emptyList())
-    val failedOperations: StateFlow<List<SyncOperation>> = _failedOperations.asStateFlow()
+    private val _failedOperations = MutableStateFlow<List<SyncEntity>>(emptyList())
+    val failedOperations: StateFlow<List<SyncEntity>> = _failedOperations.asStateFlow()
 
     fun start() {
         engine.start()
@@ -41,15 +41,11 @@ class SyncClient private constructor(
         upsert: suspend (T) -> Unit,
         delete: suspend (String) -> Unit,
     ): SyncRepository<T> {
-        val _observe = observe
-        val _observeAll = observeAll
-        val _upsert = upsert
-        val _delete = delete
         return object : SyncRepository<T> {
-            override fun observe(id: String): Flow<T?> = _observe(id)
-            override fun observeAll(): Flow<List<T>> = _observeAll()
-            override suspend fun upsert(value: T) = _upsert(value)
-            override suspend fun delete(id: String) = _delete(id)
+            override fun observe(id: String): Flow<T?> = observe(id)
+            override fun observeAll(): Flow<List<T>> = observeAll()
+            override suspend fun upsert(value: T) = upsert(value)
+            override suspend fun delete(id: String) = delete(id)
         }
     }
 
@@ -57,18 +53,33 @@ class SyncClient private constructor(
         engine.stop()
     }
 
+    fun retry(entity: SyncEntity) {
+        // Create a new operation to retry the failed entity
+        val operation = SyncOperation(
+            operationId = Uuid.random().toString(),
+            entityId = entity.id,
+            type = dev.esteki.kmos.sync.core.model.OperationType.Update,
+            attempt = 0,
+            payload = entity.payload,
+        )
+        scope.launch {
+            commandChannel.send(SyncCommand.Enqueue(operation))
+            refreshFailedOperations()
+        }
+    }
+
+    fun discard(entity: SyncEntity) {
+        // Remove entity from failed operations by setting syncState to something else
+        scope.launch {
+            storageAdapter.write(entity.copy(syncState = SyncState.PendingUpload))
+            refreshFailedOperations()
+        }
+    }
+
     private suspend fun refreshFailedOperations() {
         val pending = storageAdapter.queryPending()
         val failed = pending.filter { it.syncState == SyncState.Failed }
-        _failedOperations.value = failed.map { entity ->
-            SyncOperation(
-                operationId = Uuid.random().toString(),
-                entityId = entity.id,
-                type = dev.esteki.kmos.sync.core.model.OperationType.Update,
-                attempt = 0,
-                payload = entity.payload,
-            )
-        }
+        _failedOperations.value = failed
     }
 
     class Builder {
