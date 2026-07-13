@@ -4,22 +4,17 @@ import dev.esteki.kmos.sync.core.model.SyncEntity
 import dev.esteki.kmos.sync.core.model.SyncOperation
 import dev.esteki.kmos.sync.core.model.SyncState
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.launch
-import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
 class SyncClient private constructor(
     private val scope: CoroutineScope,
     private val storageAdapter: StorageAdapter,
-    private val transportAdapter: TransportAdapter,
-    private val retryPolicy: RetryPolicy,
     private val commandChannel: Channel<SyncCommand>,
     private val engine: SyncEngine,
 ) {
@@ -41,16 +36,20 @@ class SyncClient private constructor(
     }
 
     fun <T : Any> repository(
-        observe: suspend (id: String) -> Flow<T?>,
-        observeAll: suspend () -> Flow<List<T>>,
+        observe: (id: String) -> Flow<T?>,
+        observeAll: () -> Flow<List<T>>,
         upsert: suspend (T) -> Unit,
         delete: suspend (String) -> Unit,
     ): SyncRepository<T> {
+        val _observe = observe
+        val _observeAll = observeAll
+        val _upsert = upsert
+        val _delete = delete
         return object : SyncRepository<T> {
-            override fun observe(id: String): Flow<T?> = emptyFlow()
-            override fun observeAll(): Flow<List<T>> = emptyFlow()
-            override suspend fun upsert(value: T) = upsert(value)
-            override suspend fun delete(id: String) = delete(id)
+            override fun observe(id: String): Flow<T?> = _observe(id)
+            override fun observeAll(): Flow<List<T>> = _observeAll()
+            override suspend fun upsert(value: T) = _upsert(value)
+            override suspend fun delete(id: String) = _delete(id)
         }
     }
 
@@ -104,8 +103,6 @@ class SyncClient private constructor(
             return SyncClient(
                 scope = scope,
                 storageAdapter = storage,
-                transportAdapter = transport,
-                retryPolicy = retry,
                 commandChannel = commandChannel,
                 engine = engine,
             )
