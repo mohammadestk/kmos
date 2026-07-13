@@ -1,38 +1,78 @@
-# Kmos
+<div align="center">
 
-Kotlin Multiplatform offline-first sync SDK. Single-writer Channel-driven engine with idempotent retry, conflict resolution, and pluggable storage/transport — all in commonMain.
+# ⚡ Kmos
 
-## Features
+### Kotlin Multiplatform Offline-First Sync SDK
 
-- **Offline-first by default** — sync runs on foreground, manual trigger, or optional in-process interval
-- **Single implementation** — Android, iOS, JVM, Desktop, JS, WasmJS from one codebase
-- **Single-writer concurrency** — Channel-driven command queue, no locks, no platform-specific threading
-- **Idempotent retry** — exponential backoff with jitter, dead-letter path, failure-driven (no connectivity API needed)
-- **Conflict resolution** — Last-Write-Wins default, custom `ConflictResolver<T>` callback
-- **Pluggable adapters** — `StorageAdapter` and `TransportAdapter` interfaces with contract test suites
-- **Room 3 storage** — reference implementation backed by Room 3 (KMP-native)
-- **Koin DI** — ready-to-use dependency injection module
+**Reliable synchronization. One codebase. Six platforms.**
 
-## Supported Platforms
+[![Kotlin](https://img.shields.io/badge/Kotlin-2.4.0-purple?logo=kotlin)](https://kotlinlang.org)
+[![KMP](https://img.shields.io/badge/KMP-All%20Targets-blue)](https://www.jetbrains.com/kotlin-multiplatform/)
+[![License](https://img.shields.io/badge/License-TBD-green)](#license)
 
-| Platform | Target |
-|----------|--------|
-| Android | Library (minSdk 24) |
-| iOS | iosArm64, iosSimulatorArm64 |
-| Desktop | JVM |
-| Web | JS, WasmJS |
+</div>
 
-## Quick Start
+---
 
-### Setup
+## 🎯 What is Kmos?
+
+Kmos is a **Kotlin Multiplatform SDK** for building offline-first applications with reliable, correct synchronization. Write your sync logic once in `commonMain` — it runs everywhere.
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                        YOUR APP                             │
+├─────────────────────────────────────────────────────────────┤
+│                    SyncRepository<T>                        │
+│                     (typed APIs)                            │
+├─────────────────────────────────────────────────────────────┤
+│                     Sync Engine                             │
+│         ┌───────────┴───────────┴───────────┐              │
+│         ▼               ▼                   ▼              │
+│   Operation Queue   Retry Policy    Conflict Resolver      │
+│    (idempotent)    (backoff+jitter)    (LWW/Custom)        │
+├─────────────────────────────────────────────────────────────┤
+│    StorageAdapter          TransportAdapter                 │
+│       (Room 3)                 (Ktor)                      │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## ✨ Features
+
+| Feature | Description |
+|---------|-------------|
+| 🔌 **Offline-First** | Sync runs on foreground, manual trigger, or optional interval |
+| 🌍 **6 Platforms** | Android, iOS, JVM, Desktop, JS, WasmJS — one implementation |
+| 🔒 **Thread-Safe** | Single-writer Channel-driven architecture — no locks needed |
+| 🔄 **Idempotent Retry** | Exponential backoff with jitter, dead-letter path |
+| ⚖️ **Conflict Resolution** | Last-Write-Wins default, custom resolver support |
+| 🧩 **Pluggable** | Storage & transport adapters with contract test suites |
+| 🗄️ **Room 3** | KMP-native storage reference implementation |
+| 💉 **Koin DI** | Ready-to-use dependency injection module |
+
+---
+
+## 🚀 Quick Start
+
+### 1. Add Dependency
 
 ```kotlin
-// Initialize with Koin
+// build.gradle.kts
+dependencies {
+    implementation("dev.esteki.kmos:shared:VERSION")
+}
+```
+
+### 2. Initialize SDK
+
+```kotlin
+// With Koin (recommended)
 startKoin {
     modules(syncModule(databaseName = "myapp.db"))
 }
 
-// Or use the builder directly
+// Or manually
 val client = SyncClient.build(scope) {
     storage(RoomStorageAdapter(database))
     transport(KtorTransportAdapter())
@@ -40,64 +80,85 @@ val client = SyncClient.build(scope) {
 }
 ```
 
-### Using SyncRepository
+### 3. Use SyncRepository
 
 ```kotlin
+// Get a typed repository
 val tasks: SyncRepository<Task> = client.repository()
 
-// Observe data
+// Observe all tasks
 tasks.observeAll().collect { taskList ->
-    // render UI
+    // Update UI
 }
 
-// Update data
-tasks.upsert(updatedTask)
+// Create or update a task
+tasks.upsert(Task(id = "1", title = "Buy milk"))
 
-// Manual sync
+// Trigger manual sync
 client.trigger()
 
-// Monitor failed operations
+// Handle failed operations
 client.failedOperations().collect { failed ->
-    // show retry UI
+    failed.forEach { operation ->
+        // Show retry button to user
+    }
 }
 ```
 
-## Architecture
+---
+
+## 🏗️ Architecture
+
+### Core Components
+
+| Component | Purpose |
+|-----------|---------|
+| `SyncClient` | Public entry point, builder DSL |
+| `SyncEngine` | Single-writer, Channel-driven command processor |
+| `OperationQueue` | Persisted queue with idempotency deduplication |
+| `RetryPolicy` | Exponential backoff with configurable dead-letter |
+| `ConflictResolver` | LWW or custom merge logic |
+| `StorageAdapter` | Local persistence interface |
+| `TransportAdapter` | Network transport interface |
+
+### Data Flow
 
 ```
-App
- │
- Public API (typed repositories)
- │
- SyncRepository<T>
- │
- Sync Engine (single-writer, Channel-driven command queue)
- ├── Operation Queue (persisted, idempotency-keyed)
- ├── Retry Policy (exponential backoff + jitter, dead-letter)
- ├── Conflict Resolver (LWW | Custom callback)
- └── Sync Trigger (foreground, manual, interval)
- │
- StorageAdapter (Room 3)
- │
- TransportAdapter (Ktor)
+User Action
+    │
+    ▼
+SyncRepository.upsert()
+    │
+    ▼
+SyncCommand.Enqueue ──► OperationQueue
+                              │
+                              ▼
+                    SyncCommand.TriggerSync
+                              │
+                              ▼
+                    TransportAdapter.push()
+                              │
+                    ┌─────────┴─────────┐
+                    ▼                   ▼
+               Success              Failure
+                    │                   │
+                    ▼                   ▼
+            StorageAdapter.write()  RetryPolicy
+            (state = Synced)     (backoff/retry)
 ```
 
-### Key Design Decisions
+---
 
-- **Single-writer concurrency** — all mutations enter a `Channel<SyncCommand>`, consumed by one coroutine. No locks.
-- **No network monitor** — failures drive retry directly. A device reporting "connected" with no internet is not something platform APIs reliably detect.
-- **No background execution** — WorkManager, BGTaskScheduler, and OS schedulers are deliberately excluded. See [Scope Boundary](#scope-boundary-no-background-execution) below.
-
-## Configuration
+## ⚙️ Configuration
 
 ### RetryPolicy
 
 ```kotlin
 ExponentialBackoffRetryPolicy(
-    baseDelay = 1000.milliseconds,
-    maxDelay = 60_000.milliseconds,
-    maxAttempts = 5,
-    jitterFactor = 0.3,
+    baseDelay = 1000.milliseconds,    // Initial delay
+    maxDelay = 60_000.milliseconds,   // Maximum delay cap
+    maxAttempts = 5,                   // Dead-letter threshold
+    jitterFactor = 0.3,               // Randomness factor
 )
 ```
 
@@ -109,71 +170,133 @@ LastWriteWinsConflictResolver()
 
 // Custom resolver
 ConflictResolver<MyEntity> { local, remote ->
-    // your merge logic
+    local.copy(
+        version = maxOf(local.version, remote.version),
+        data = merge(local.data, remote.data)
+    )
 }
 ```
 
-## Building
+### SyncTrigger
 
-```bash
-# Android
-./gradlew :androidApp:assembleDebug
-
-# Desktop (JVM)
-./gradlew :desktopApp:run
-
-# Web (Wasm)
-./gradlew :webApp:wasmJsBrowserDevelopmentRun
-
-# Web (JS)
-./gradlew :webApp:jsBrowserDevelopmentRun
-
-# iOS — open iosApp/ in Xcode
+```kotlin
+DefaultSyncTrigger(
+    scope = coroutineScope,
+    onTrigger = { client.trigger() },
+).apply {
+    startInterval(5.minutes)  // Optional periodic sync
+}
 ```
 
-## Testing
+---
+
+## 🛠️ Development
+
+### Build Commands
 
 ```bash
-# Android
+# 🤖 Android
+./gradlew :androidApp:assembleDebug
+
+# 🖥️ Desktop (JVM)
+./gradlew :desktopApp:run
+
+# 🌐 Web (Wasm — modern browsers)
+./gradlew :webApp:wasmJsBrowserDevelopmentRun
+
+# 🌐 Web (JS — older browsers)
+./gradlew :webApp:jsBrowserDevelopmentRun
+
+# 🍎 iOS — open iosApp/ in Xcode
+```
+
+### Test Commands
+
+```bash
+# 🧪 Android
 ./gradlew :shared:testAndroidHostTest
 
-# Desktop (JVM)
+# 🧪 Desktop (JVM)
 ./gradlew :shared:jvmTest
 
-# Web (Wasm)
+# 🧪 Web (Wasm)
 ./gradlew :shared:wasmJsTest
 
-# Web (JS)
+# 🧪 Web (JS)
 ./gradlew :shared:jsTest
 
-# iOS simulator
+# 🧪 iOS simulator
 ./gradlew :shared:iosSimulatorArm64Test
 ```
 
-## Project Structure
+---
+
+## 📁 Project Structure
 
 ```
-shared/src/
-  commonMain/    SDK core (interfaces + engine)
-  commonTest/    contract tests, unit tests
-  androidMain/   Android actuals (Room bootstrap)
-  iosMain/       iOS actuals
-  jvmMain/       JVM/Desktop actuals
-  jsMain/        JS/Web actuals
-  wasmJsMain/    Wasm/Web actuals
+kmos/
+├── shared/                    # Core SDK module
+│   └── src/
+│       ├── commonMain/        # 🎯 All sync logic lives here
+│       │   └── dev/esteki/kmos/sync/
+│       │       ├── core/      # Engine, interfaces, models
+│       │       ├── network/   # Ktor transport
+│       │       ├── storage/   # Room 3 adapter
+│       │       └── trigger/   # Lifecycle hooks
+│       ├── commonTest/        # Contract tests & unit tests
+│       ├── androidMain/       # Android actuals
+│       ├── iosMain/           # iOS actuals
+│       ├── jvmMain/           # JVM/Desktop actuals
+│       └── webMain/           # Web actuals
+├── androidApp/                # Android demo app
+├── desktopApp/                # Desktop demo app
+├── webApp/                    # Web demo app
+├── iosApp/                    # iOS demo app
+└── specs/                     # Design specifications
 ```
 
-## Scope Boundary: No Background Execution
+---
 
-Sync in this SDK only runs while the app process is alive: on foreground, on manual trigger, or on an optional in-process interval. It does **not** wake the app to sync when killed or long-backgrounded.
+## ⚠️ Scope Boundary: No Background Execution
 
-This is intentional:
+> **This is a deliberate design choice, not a limitation.**
+
+Sync in Kmos only runs while the app process is alive:
+
+| ✅ Supported | ❌ Not Supported |
+|-------------|-----------------|
+| Foreground sync | Background sync when app is killed |
+| Manual trigger | OS-level scheduled sync |
+| In-process interval | WorkManager / BGTaskScheduler |
+
+**Why?**
+
 - **WorkManager** (Android) has no equivalent on JVM/Desktop
-- **BGTaskScheduler** (iOS) is budget-limited and OS-scheduled at Apple's discretion
-- **JVM/Desktop** has no OS-level background task scheduler
+- **BGTaskScheduler** (iOS) is budget-limited and unreliable by design
+- **JVM/Desktop** has no OS-level background scheduler
 
-Apps that need "sync while closed" should pair this SDK with server-push (silent push notification triggering a foreground sync).
+**Need "sync while closed"?** Use server-push (silent notifications) to trigger foreground sync.
 
-## License
+---
+
+## 📚 Learn More
+
+- [Kotlin Multiplatform](https://www.jetbrains.com/help/kotlin-multiplatform-dev/get-started.html)
+- [Compose Multiplatform](https://github.com/JetBrains/compose-multiplatform)
+- [Room 3](https://developer.android.com/jetpack/androidx/releases/room)
+- [Ktor](https://ktor.io/)
+- [Koin](https://insert-koin.io/)
+
+---
+
+## 📄 License
 
 License TBD.
+
+---
+
+<div align="center">
+
+**Built with ❤️ using Kotlin Multiplatform**
+
+</div>
