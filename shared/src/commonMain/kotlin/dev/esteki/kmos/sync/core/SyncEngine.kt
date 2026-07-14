@@ -4,12 +4,16 @@ import dev.esteki.kmos.sync.core.model.PushResult
 import dev.esteki.kmos.sync.core.model.SyncEntity
 import dev.esteki.kmos.sync.core.model.SyncError
 import dev.esteki.kmos.sync.core.model.SyncOperation
+import dev.esteki.kmos.sync.core.model.SyncProgress
 import dev.esteki.kmos.sync.core.model.SyncState
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
 
 class SyncEngine(
@@ -23,6 +27,9 @@ class SyncEngine(
 ) {
     private var engineJob: Job? = null
     private var pullCursor: String? = null
+
+    private val _progress = MutableSharedFlow<SyncProgress>(extraBufferCapacity = 64)
+    val progress: SharedFlow<SyncProgress> = _progress.asSharedFlow()
 
     fun start() {
         engineJob = scope.launch {
@@ -47,15 +54,22 @@ class SyncEngine(
 
     private suspend fun drainQueue() {
         val pending = operationQueue.dequeuePending()
+        val total = pending.size
+        var completed = 0
+        var conflicts = 0
         for (op in pending) {
-            processOperation(op)
+            _progress.emit(SyncProgress.Pushing(op.operationId, completed, total))
+            val result = processOperation(op)
+            if (result) completed++ else conflicts++
         }
+        _progress.emit(SyncProgress.Completed(completed, 0, conflicts))
     }
 
     private suspend fun pullAndSync() {
-        // Fetch all pages using cursor-based pagination
         var cursor = pullCursor
+        var pulled = 0
         do {
+            _progress.emit(SyncProgress.Pulling(cursor))
             val result = transportAdapter.pull(cursor)
             for (entity in result.entities) {
                 val localEntity = storageAdapter.read(entity.id)
@@ -65,15 +79,16 @@ class SyncEngine(
                     entity
                 }
                 storageAdapter.write(resolvedEntity)
+                pulled++
             }
             cursor = result.nextCursor
         } while (cursor != null)
-        // Reset cursor after fetching all pages
         pullCursor = null
+        _progress.emit(SyncProgress.Completed(0, pulled, 0))
     }
 
-    private suspend fun processOperation(op: dev.esteki.kmos.sync.core.model.SyncOperation) {
-        try {
+    private suspend fun processOperation(op: SyncOperation): Boolean {
+        return try {
             val result = transportAdapter.push(op)
             when (result) {
                 is PushResult.Success -> {
@@ -82,9 +97,9 @@ class SyncEngine(
                         storageAdapter.write(entity.copy(syncState = SyncState.Synced, version = result.version))
                     }
                     operationQueue.markDone(op.operationId)
+                    true
                 }
                 is PushResult.Conflict -> {
-                    // TODO: Consider operation payload when resolving conflicts
                     val localEntity = storageAdapter.read(op.entityId)
                     val resolvedEntity = if (localEntity != null) {
                         conflictResolver.resolve(localEntity, result.remoteEntity)
@@ -93,16 +108,17 @@ class SyncEngine(
                     }
                     storageAdapter.write(resolvedEntity.copy(syncState = SyncState.Synced))
                     operationQueue.markDone(op.operationId)
+                    false
                 }
                 is PushResult.Error -> {
                     val attempt = op.attempt + 1
                     if (retryPolicy.shouldDeadLetter(attempt, result.error)) {
-                        // Dead-letter: mark operation as failed and update entity syncState
                         operationQueue.markFailed(op.operationId, result.error)
                         val entity = storageAdapter.read(op.entityId)
                         if (entity != null) {
                             storageAdapter.write(entity.copy(syncState = SyncState.Failed))
                         }
+                        _progress.emit(SyncProgress.Error(op.operationId, result.error))
                     } else {
                         val delay = retryPolicy.nextDelay(attempt)
                         operationQueue.remove(op.operationId)
@@ -111,6 +127,7 @@ class SyncEngine(
                             commandChannel.send(SyncCommand.Enqueue(op.copy(attempt = attempt)))
                         }
                     }
+                    false
                 }
             }
         } catch (e: CancellationException) {
@@ -118,12 +135,12 @@ class SyncEngine(
         } catch (e: Exception) {
             val attempt = op.attempt + 1
             if (retryPolicy.shouldDeadLetter(attempt, SyncError.Unknown(e))) {
-                // Dead-letter: mark operation as failed and update entity syncState
                 operationQueue.markFailed(op.operationId, SyncError.Unknown(e))
                 val entity = storageAdapter.read(op.entityId)
                 if (entity != null) {
                     storageAdapter.write(entity.copy(syncState = SyncState.Failed))
                 }
+                _progress.emit(SyncProgress.Error(op.operationId, SyncError.Unknown(e)))
             } else {
                 val delay = retryPolicy.nextDelay(attempt)
                 operationQueue.remove(op.operationId)
@@ -132,6 +149,7 @@ class SyncEngine(
                     commandChannel.send(SyncCommand.Enqueue(op.copy(attempt = attempt)))
                 }
             }
+            false
         }
     }
 
