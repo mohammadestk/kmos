@@ -3,6 +3,8 @@ import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.androidMultiplatformLibrary)
+    alias(libs.plugins.dokka)
+    `maven-publish`
 }
 
 kotlin {
@@ -30,12 +32,36 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
-            implementation(projects.syncCore)
-            implementation(libs.kotlinx.coroutines.core)
+            api(projects.syncCore)
+            api(libs.kotlinx.coroutines.core)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
             implementation(libs.kotlinx.coroutines.test)
+        }
+    }
+}
+
+val javadocJar by tasks.registering(Jar::class) {
+    archiveClassifier.set("javadoc")
+    from(tasks.named("dokkaHtml"))
+}
+
+afterEvaluate {
+    publishing {
+        publications.withType<MavenPublication>().configureEach {
+            artifact(javadocJar)
+            pom {
+                name.set("KMOS - Sync Trigger")
+                description.set("Kotlin Multiplatform Offline-First Sync SDK - Lifecycle hooks and trigger management")
+                url.set("https://github.com/mohammadestk/Kmos")
+                licenses {
+                    license {
+                        name.set("The Apache License, Version 2.0")
+                        url.set("https://www.apache.org/licenses/LICENSE-2.0.txt")
+                    }
+                }
+            }
         }
     }
 }

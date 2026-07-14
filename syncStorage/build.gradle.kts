@@ -7,6 +7,8 @@ plugins {
     alias(libs.plugins.kotlinSerialization)
     alias(libs.plugins.ksp)
     alias(libs.plugins.room3)
+    alias(libs.plugins.dokka)
+    `maven-publish`
 }
 
 room3 {
@@ -38,10 +40,10 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
-            implementation(projects.syncCore)
-            implementation(libs.kotlinx.coroutines.core)
-            implementation(libs.kotlinx.datetime)
-            implementation(libs.room3.runtime)
+            api(projects.syncCore)
+            api(libs.kotlinx.coroutines.core)
+            api(libs.kotlinx.datetime)
+            api(libs.room3.runtime)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
@@ -49,16 +51,16 @@ kotlin {
             implementation(projects.syncTesting)
         }
         androidMain.dependencies {
-            implementation(libs.androidx.sqlite.bundled)
+            api(libs.androidx.sqlite.bundled)
         }
         jvmMain.dependencies {
-            implementation(libs.androidx.sqlite.bundled)
+            api(libs.androidx.sqlite.bundled)
         }
         iosMain.dependencies {
-            implementation(libs.androidx.sqlite.bundled)
+            api(libs.androidx.sqlite.bundled)
         }
         webMain.dependencies {
-            implementation(libs.androidx.sqlite.web)
+            api(libs.androidx.sqlite.web)
             implementation(projects.sqliteWasmWorker)
             implementation(projects.sqlJsWorker)
         }
@@ -72,4 +74,28 @@ dependencies {
     add("kspWasmJs", "androidx.room3:room3-compiler:${libs.versions.room3.get()}")
     add("kspIosArm64", "androidx.room3:room3-compiler:${libs.versions.room3.get()}")
     add("kspIosSimulatorArm64", "androidx.room3:room3-compiler:${libs.versions.room3.get()}")
+}
+
+val javadocJar by tasks.registering(Jar::class) {
+    archiveClassifier.set("javadoc")
+    from(tasks.named("dokkaHtml"))
+}
+
+afterEvaluate {
+    publishing {
+        publications.withType<MavenPublication>().configureEach {
+            artifact(javadocJar)
+            pom {
+                name.set("KMOS - Sync Storage")
+                description.set("Kotlin Multiplatform Offline-First Sync SDK - Room 3 storage adapter")
+                url.set("https://github.com/mohammadestk/Kmos")
+                licenses {
+                    license {
+                        name.set("The Apache License, Version 2.0")
+                        url.set("https://www.apache.org/licenses/LICENSE-2.0.txt")
+                    }
+                }
+            }
+        }
+    }
 }

@@ -4,6 +4,8 @@ plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.androidMultiplatformLibrary)
     alias(libs.plugins.kotlinSerialization)
+    alias(libs.plugins.dokka)
+    `maven-publish`
 }
 
 kotlin {
@@ -31,12 +33,12 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
-            implementation(projects.syncCore)
-            implementation(libs.kotlinx.coroutines.core)
-            implementation(libs.kotlinx.serialization.json)
-            implementation(libs.ktor.client.core)
-            implementation(libs.ktor.client.content.negotiation)
-            implementation(libs.ktor.serialization.json)
+            api(projects.syncCore)
+            api(libs.kotlinx.coroutines.core)
+            api(libs.kotlinx.serialization.json)
+            api(libs.ktor.client.core)
+            api(libs.ktor.client.content.negotiation)
+            api(libs.ktor.serialization.json)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
@@ -52,6 +54,30 @@ kotlin {
         }
         jsMain.dependencies {
             implementation(libs.ktor.client.js)
+        }
+    }
+}
+
+val javadocJar by tasks.registering(Jar::class) {
+    archiveClassifier.set("javadoc")
+    from(tasks.named("dokkaHtml"))
+}
+
+afterEvaluate {
+    publishing {
+        publications.withType<MavenPublication>().configureEach {
+            artifact(javadocJar)
+            pom {
+                name.set("KMOS - Sync Network")
+                description.set("Kotlin Multiplatform Offline-First Sync SDK - Ktor transport adapter")
+                url.set("https://github.com/mohammadestk/Kmos")
+                licenses {
+                    license {
+                        name.set("The Apache License, Version 2.0")
+                        url.set("https://www.apache.org/licenses/LICENSE-2.0.txt")
+                    }
+                }
+            }
         }
     }
 }

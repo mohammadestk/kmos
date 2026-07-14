@@ -23,6 +23,7 @@ material3 = "1.11.0-alpha07"
 room3 = "3.0.0"
 sqlite = "2.7.0"
 turbine = "1.2.1"
+dokka = "2.0.0"
 
 [libraries]
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "androidx-activity" }
@@ -75,3 +76,4 @@ kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref =
 kotlinSerialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 room3 = { id = "androidx.room3", version.ref = "room3" }
+dokka = { id = "org.jetbrains.dokka", version.ref = "dokka" }

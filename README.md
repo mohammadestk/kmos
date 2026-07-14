@@ -1,18 +1,19 @@
-# ⚡ Kmos
+# Kmos
 
 ### Kotlin Multiplatform Offline-First Sync SDK
 
 **Reliable synchronization. One codebase. Six platforms.**
 
-> 🚧 **Status: In Progress** — This SDK is actively under development. APIs may change.
+> **Status: In Progress** — This SDK is actively under development. APIs may change.
 
 [![Kotlin](https://img.shields.io/badge/Kotlin-2.4.0-purple?logo=kotlin)](https://kotlinlang.org)
 [![KMP](https://img.shields.io/badge/KMP-All%20Targets-blue)](https://www.jetbrains.com/kotlin-multiplatform/)
-[![License](https://img.shields.io/badge/License-TBD-green)](#license)
+[![License](https://img.shields.io/badge/License-Apache%202.0-green)](#license)
+[![JitPack](https://jitpack.io/v/mohammadestk/Kmos.svg)](https://jitpack.io/#mohammadestk/Kmos)
 
 ---
 
-## 🎯 What is Kmos?
+## What is Kmos?
 
 Kmos is a **Kotlin Multiplatform SDK** for building offline-first applications with reliable, correct synchronization. Write your sync logic once in `commonMain` — it runs everywhere.
 
@@ -36,31 +37,40 @@ Kmos is a **Kotlin Multiplatform SDK** for building offline-first applications w
 
 ---
 
-## ✨ Features
+## Features
 
 | Feature | Description |
 |---------|-------------|
-| 🔌 **Offline-First** | Sync runs on foreground, manual trigger, or optional interval |
-| 🌍 **6 Platforms** | Android, iOS, JVM, Desktop, JS, WasmJS — one implementation |
-| 🔒 **Thread-Safe** | Single-writer Channel-driven architecture — no locks needed |
-| 🔄 **Idempotent Retry** | Exponential backoff with jitter, dead-letter path |
-| ⚖️ **Conflict Resolution** | Last-Write-Wins default, custom resolver support |
-| 🧩 **Pluggable** | Storage & transport adapters with contract test suites |
-| 🗄️ **Room 3** | KMP-native storage reference implementation |
-| 💉 **Koin DI** | Ready-to-use dependency injection module |
+| **Offline-First** | Sync runs on foreground, manual trigger, or optional interval |
+| **6 Platforms** | Android, iOS, JVM, Desktop, JS, WasmJS — one implementation |
+| **Thread-Safe** | Single-writer Channel-driven architecture — no locks needed |
+| **Idempotent Retry** | Exponential backoff with jitter, dead-letter path |
+| **Conflict Resolution** | Last-Write-Wins default, custom resolver support |
+| **Pluggable** | Storage & transport adapters with contract test suites |
+| **Room 3** | KMP-native storage reference implementation |
+| **Koin DI** | Ready-to-use dependency injection module |
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 ### 1. Add Dependency
 
 ```kotlin
 // build.gradle.kts
+repositories {
+    maven { url = uri("https://jitpack.io") }
+}
+
 dependencies {
-    implementation("dev.esteki.kmos:shared:VERSION")
+    implementation("com.github.mohammadestk.Kmos:syncCore:Tag")
+    implementation("com.github.mohammadestk.Kmos:syncStorage:Tag")
+    implementation("com.github.mohammadestk.Kmos:syncNetwork:Tag")
+    implementation("com.github.mohammadestk.Kmos:syncTrigger:Tag")
 }
 ```
+
+Replace `Tag` with the desired version tag (e.g., `v0.1.0`).
 
 ### 2. Initialize SDK
 
@@ -105,7 +115,7 @@ client.failedOperations().collect { failed ->
 
 ---
 
-## 🏗️ Architecture
+## Architecture
 
 ### Core Components
 
@@ -147,7 +157,7 @@ SyncCommand.Enqueue ──► OperationQueue
 
 ---
 
-## ⚙️ Configuration
+## Configuration
 
 ### RetryPolicy
 
@@ -188,81 +198,76 @@ DefaultSyncTrigger(
 
 ---
 
-## 🛠️ Development
+## Development
 
 ### Build Commands
 
 ```bash
-# 🤖 Android
-./gradlew :androidApp:assembleDebug
+# Android
+./gradlew :sample:androidApp:assembleDebug
 
-# 🖥️ Desktop (JVM)
-./gradlew :desktopApp:run
+# Desktop (JVM)
+./gradlew :sample:desktopApp:run
 
-# 🌐 Web (Wasm — modern browsers)
-./gradlew :webApp:wasmJsBrowserDevelopmentRun
+# Web (Wasm — modern browsers)
+./gradlew :sample:webApp:wasmJsBrowserDevelopmentRun
 
-# 🌐 Web (JS — older browsers)
-./gradlew :webApp:jsBrowserDevelopmentRun
+# Web (JS — older browsers)
+./gradlew :sample:webApp:jsBrowserDevelopmentRun
 
-# 🍎 iOS — open iosApp/ in Xcode
+# iOS — open sample/iosApp/ in Xcode
 ```
 
 ### Test Commands
 
 ```bash
-# 🧪 Android
-./gradlew :shared:testAndroidHostTest
+# Core engine tests
+./gradlew :syncCore:jvmTest
 
-# 🧪 Desktop (JVM)
-./gradlew :shared:jvmTest
+# Trigger tests
+./gradlew :syncTrigger:jvmTest
 
-# 🧪 Web (Wasm)
-./gradlew :shared:wasmJsTest
+# Storage compilation
+./gradlew :syncStorage:compileKotlinJvm
 
-# 🧪 Web (JS)
-./gradlew :shared:jsTest
+# Network compilation
+./gradlew :syncNetwork:compileKotlinJvm
 
-# 🧪 iOS simulator
-./gradlew :shared:iosSimulatorArm64Test
+# Sample app tests
+./gradlew :sample:jvmTest
 ```
 
 ---
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 kmos/
-├── shared/                    # Core SDK module
-│   └── src/
-│       ├── commonMain/        # 🎯 All sync logic lives here
-│       │   └── dev/esteki/kmos/sync/
-│       │       ├── core/      # Engine, interfaces, models
-│       │       ├── network/   # Ktor transport
-│       │       ├── storage/   # Room 3 adapter
-│       │       └── trigger/   # Lifecycle hooks
-│       ├── commonTest/        # Contract tests & unit tests
-│       ├── androidMain/       # Android actuals
-│       ├── iosMain/           # iOS actuals
-│       ├── jvmMain/           # JVM/Desktop actuals
-│       └── webMain/           # Web actuals
-├── androidApp/                # Android demo app
-├── desktopApp/                # Desktop demo app
-├── webApp/                    # Web demo app
-├── iosApp/                    # iOS demo app
-└── specs/                     # Design specifications
+├── syncCore/                    # Core engine, interfaces, models
+├── syncStorage/                 # Room 3 storage adapter
+├── syncNetwork/                 # Ktor transport adapter
+├── syncTrigger/                 # Lifecycle hooks and trigger management
+├── syncTesting/                 # Test utilities (not published)
+├── sample/                      # Demo apps
+│   ├── shared/                  # Shared UI code
+│   ├── androidApp/              # Android app
+│   ├── desktopApp/              # Desktop app
+│   ├── webApp/                  # Web app
+│   └── iosApp/                  # iOS app
+├── specs/                       # Design specifications
+└── gradle/                      # Build configuration
 ```
 
 ---
 
-## ⚠️ Scope Boundary: No Background Execution
+## Scope Boundary: No Background Execution
 
 > **This is a deliberate design choice, not a limitation.**
 
 Sync in Kmos only runs while the app process is alive:
 
-| ✅ Supported | ❌ Not Supported |
-|-------------|-----------------|
+| Supported | Not Supported |
+|-----------|---------------|
 | Foreground sync | Background sync when app is killed |
 | Manual trigger | OS-level scheduled sync |
 | In-process interval | WorkManager / BGTaskScheduler |
@@ -277,7 +282,7 @@ Sync in Kmos only runs while the app process is alive:
 
 ---
 
-## 📚 Learn More
+## Learn More
 
 - [Kotlin Multiplatform](https://www.jetbrains.com/help/kotlin-multiplatform-dev/get-started.html)
 - [Compose Multiplatform](https://github.com/JetBrains/compose-multiplatform)
@@ -287,10 +292,20 @@ Sync in Kmos only runs while the app process is alive:
 
 ---
 
-## 📄 License
+## License
 
-License TBD.
+```
+Copyright 2025 Mohammad Esteki
 
----
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
-**Built with ❤️ using Kotlin Multiplatform**
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+```
