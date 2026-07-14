@@ -4,8 +4,6 @@
 
 Kotlin Multiplatform Offline Sync SDK. The spec (`specs/kmos_specs.md`) is the source of truth for all design decisions — read it before implementing anything.
 
-Currently in scaffold stage (Compose Multiplatform template). SDK implementation has not started.
-
 ## Build & Run
 
 ```bash
@@ -26,49 +24,63 @@ Currently in scaffold stage (Compose Multiplatform template). SDK implementation
 
 ## Test Commands
 
-Run all shared tests across targets:
+Run all tests across modules:
 
 ```bash
-./gradlew :shared:testAndroidHostTest   # Android
-./gradlew :shared:jvmTest               # Desktop
-./gradlew :shared:wasmJsTest            # Web (Wasm)
-./gradlew :shared:jsTest                # Web (JS)
-./gradlew :shared:iosSimulatorArm64Test # iOS simulator
+./gradlew :syncCore:jvmTest               # Core engine tests
+./gradlew :syncTrigger:jvmTest            # Trigger tests
+./gradlew :syncStorage:compileKotlinJvm   # Storage compilation
+./gradlew :syncNetwork:compileKotlinJvm   # Network compilation
+./gradlew :shared:jvmTest                 # Shared/demo tests
 ```
 
-iOS tests require an Xcode-managed simulator. If `iosSimulatorArm64Test` fails with a simulator not found error, create one via `xcrun simctl create`.
+iOS tests require an Xcode-managed simulator. If `iosSimulatorArm64Test` fails with a simulator not found error, create one via `xcrun simctl create.
 
 ## Architecture (non-obvious)
 
-- **All sync engine code lives in `commonMain`**. No expect/actual platform glue beyond Room 3's bundled SQLite driver. This is a hard constraint — the whole point is solving every hard problem once in shared code.
+- **All sync engine code lives in `commonMain`** of each module. No expect/actual platform glue beyond Room 3's bundled SQLite driver. This is a hard constraint — the whole point is solving every hard problem once in shared code.
 - **Single-writer concurrency**. All mutations enter a `Channel<SyncCommand>` consumed by one coroutine per `SyncClient` instance. No locks — sidesteps JVM vs. Kotlin/Native shared-mutable-state differences.
 - **No network monitor node**. Failures drive retry directly. A device reporting "connected" to Wi-Fi with no internet is not something platform APIs reliably detect anyway.
 - **No background execution**. WorkManager, BGTaskScheduler, and OS schedulers are deliberately excluded. Sync runs on foreground, manual trigger, and optional in-process interval while the process is alive.
 - **Every push requires an `operationId`**. Idempotency key is mandatory, not optional. Without it, retry-after-ambiguous-failure produces duplicate writes.
 
-## Planned Modules
+## Modules
 
 ```
-sync-core       interfaces, models, engine, operation queue, retry policy
-sync-storage    StorageAdapter + contract tests, Room/SQLDelight reference impl
-sync-network    TransportAdapter + contract tests, Ktor reference impl
-sync-trigger    lifecycle hooks, manual trigger, optional in-process interval
-sync-testing    fake adapters, contract test base classes, deterministic clocks
+syncCore        interfaces, models, engine, operation queue, retry policy
+syncStorage     StorageAdapter + Room reference impl, DatabaseFactory expect/actuals
+syncNetwork     TransportAdapter + Ktor reference impl
+syncTrigger     lifecycle hooks, manual trigger, optional in-process interval
+syncTesting     fake adapters, contract test base classes, deterministic clocks
+shared          demo app (App.kt, Platform.kt) + convenience builders (SyncClientBuilder, SyncModule)
+```
+
+### Module Dependencies
+
+```
+syncCore          (no SDK deps)
+syncTrigger       → syncCore
+syncTesting       → syncCore
+syncStorage       → syncCore (+ Room3, KSP)
+syncNetwork       → syncCore (+ Ktor)
+shared            → syncCore, syncStorage, syncNetwork, syncTrigger (+ Compose, Koin)
 ```
 
 Conflict resolution: LWW (default, uses `updatedAt`) or app-supplied `ConflictResolver<T>` callback.
 
 ## Source Set Layout
 
+Each module follows this structure:
 ```
-shared/src/
-  commonMain/    SDK core (interfaces + engine)
-  commonTest/    contract tests, unit tests
-  androidMain/   Android actuals (Room bootstrap only)
+<module>/src/
+  commonMain/    Shared code (interfaces, implementations)
+  commonTest/    Tests (if any)
+  androidMain/   Android actuals (Room bootstrap only for syncStorage)
   iosMain/       iOS actuals
   jvmMain/       JVM/Desktop actuals
   jsMain/        JS/Web actuals
   wasmJsMain/    Wasm/Web actuals
+  webMain/       Web shared code (if any)
 ```
 
 ## Toolchain
@@ -77,7 +89,7 @@ shared/src/
 - JDK 21 (Amazon Corretto — see `gradle-daemon-jvm.properties`)
 - Configuration cache + build caching enabled
 - Version catalog: `gradle/libs.versions.toml`
-- Typesafe project accessors: use `projects.shared`, not `":shared"`
+- Typesafe project accessors: use `projects.syncCore`, not `":syncCore"`
 
 ## Conventions
 
