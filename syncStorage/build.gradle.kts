@@ -76,7 +76,7 @@ dependencies {
     add("kspIosSimulatorArm64", "androidx.room3:room3-compiler:${libs.versions.room3.get()}")
 }
 
-val javadocJar by tasks.registering(Jar::class) {
+val javadocJar = tasks.register<Jar>("javadocJar") {
     archiveClassifier.set("javadoc")
     from(tasks.named("dokkaHtml"))
 }
