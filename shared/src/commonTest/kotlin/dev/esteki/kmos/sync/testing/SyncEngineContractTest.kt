@@ -2,7 +2,7 @@ package dev.esteki.kmos.sync.testing
 
 import dev.esteki.kmos.sync.core.ExponentialBackoffRetryPolicy
 import dev.esteki.kmos.sync.core.LastWriteWinsConflictResolver
-import dev.esteki.kmos.sync.core.OperationQueue
+import dev.esteki.kmos.sync.core.InMemoryOperationQueue
 import dev.esteki.kmos.sync.core.SyncCommand
 import dev.esteki.kmos.sync.core.SyncEngine
 import dev.esteki.kmos.sync.core.model.OperationType
@@ -26,18 +26,23 @@ abstract class SyncEngineContractTest {
     protected abstract fun createStorage(): FakeStorageAdapter
     protected abstract fun createTransport(): FakeTransportAdapter
 
+    protected class EngineWithContext(
+        val engine: SyncEngine,
+        val commandChannel: Channel<SyncCommand>,
+    )
+
     @Test
     fun successfulPushUpdatesStorageToSynced() = runTest {
         val storage = createStorage()
         val transport = createTransport()
         transport.pushResult = PushResult.Success(version = 1L)
 
-        val engine = createEngine(this, storage, transport)
-        engine.start()
+        val ctx = createEngineWithContext(this, storage, transport)
+        ctx.engine.start()
 
         storage.addEntity(createEntity("entity-1", syncState = SyncState.PendingUpload))
-        sendCommand(engine, SyncCommand.Enqueue(createOperation("op-1", "entity-1")))
-        sendCommand(engine, SyncCommand.TriggerSync)
+        ctx.commandChannel.send(SyncCommand.Enqueue(createOperation("op-1", "entity-1")))
+        ctx.commandChannel.send(SyncCommand.TriggerSync)
 
         advanceUntilIdle()
 
@@ -46,7 +51,7 @@ abstract class SyncEngineContractTest {
         assertEquals(SyncState.Synced, written.syncState)
         assertEquals(1L, written.version)
 
-        engine.stop()
+        ctx.engine.stop()
     }
 
     @Test
@@ -56,33 +61,127 @@ abstract class SyncEngineContractTest {
         val remoteEntity = createEntity("entity-1", version = 2L, syncState = SyncState.Synced)
         transport.pushResult = PushResult.Conflict(remoteEntity)
 
-        val engine = createEngine(this, storage, transport)
-        engine.start()
+        val ctx = createEngineWithContext(this, storage, transport)
+        ctx.engine.start()
 
         storage.addEntity(createEntity("entity-1", version = 1L, syncState = SyncState.PendingUpload))
-        sendCommand(engine, SyncCommand.Enqueue(createOperation("op-1", "entity-1")))
-        sendCommand(engine, SyncCommand.TriggerSync)
+        ctx.commandChannel.send(SyncCommand.Enqueue(createOperation("op-1", "entity-1")))
+        ctx.commandChannel.send(SyncCommand.TriggerSync)
 
         advanceUntilIdle()
 
         val written = storage.getEntity("entity-1")
         assertNotNull(written)
-        assertEquals(SyncState.Conflict, written.syncState)
+        assertEquals(SyncState.Synced, written.syncState)
         assertEquals(2L, written.version)
 
-        engine.stop()
+        ctx.engine.stop()
     }
 
-    protected fun createEngine(
+    @Test
+    fun deadLetterAfterMaxAttempts() = runTest {
+        val storage = createStorage()
+        val transport = createTransport()
+        transport.pushResult = PushResult.Error(dev.esteki.kmos.sync.core.model.SyncError.NetworkTimeout)
+
+        val ctx = createEngineWithContext(this, storage, transport)
+        ctx.engine.start()
+
+        storage.addEntity(createEntity("entity-1", syncState = SyncState.PendingUpload))
+        // Enqueue with attempt = 2 (maxAttempts = 3, so next attempt 3 will dead-letter)
+        ctx.commandChannel.send(SyncCommand.Enqueue(createOperation("op-1", "entity-1").copy(attempt = 2)))
+        ctx.commandChannel.send(SyncCommand.TriggerSync)
+
+        advanceUntilIdle()
+
+        val written = storage.getEntity("entity-1")
+        assertNotNull(written)
+        assertEquals(SyncState.Failed, written.syncState)
+
+        ctx.engine.stop()
+    }
+
+    @Test
+    fun retryAfterFailureRequeues() = runTest {
+        val storage = createStorage()
+        val transport = createTransport()
+        transport.pushResult = PushResult.Error(dev.esteki.kmos.sync.core.model.SyncError.NetworkTimeout)
+
+        val ctx = createEngineWithContext(this, storage, transport)
+        ctx.engine.start()
+
+        storage.addEntity(createEntity("entity-1", syncState = SyncState.PendingUpload))
+        ctx.commandChannel.send(SyncCommand.Enqueue(createOperation("op-1", "entity-1")))
+        ctx.commandChannel.send(SyncCommand.TriggerSync)
+
+        advanceUntilIdle()
+
+        // Operation should still be in the queue with incremented attempt
+        val written = storage.getEntity("entity-1")
+        assertNotNull(written)
+        // Entity should still be PendingUpload (not synced, not failed)
+        assertEquals(SyncState.PendingUpload, written.syncState)
+
+        ctx.engine.stop()
+    }
+
+    @Test
+    fun pullAndSyncStoresEntities() = runTest {
+        val storage = createStorage()
+        val transport = createTransport()
+        val pulledEntity = createEntity("pulled-1", version = 1L, syncState = SyncState.Synced)
+        transport.pullResult = dev.esteki.kmos.sync.core.model.PullResult(
+            entities = listOf(pulledEntity),
+            nextCursor = null,
+        )
+
+        val ctx = createEngineWithContext(this, storage, transport)
+        ctx.engine.start()
+
+        ctx.commandChannel.send(SyncCommand.PullAndSync)
+
+        advanceUntilIdle()
+
+        val written = storage.getEntity("pulled-1")
+        assertNotNull(written)
+        assertEquals("pulled-1", written.id)
+        assertEquals(1L, written.version)
+
+        ctx.engine.stop()
+    }
+
+    @Test
+    fun cancelStopsEngine() = runTest {
+        val storage = createStorage()
+        val transport = createTransport()
+        transport.pushResult = PushResult.Success(version = 1L)
+
+        val ctx = createEngineWithContext(this, storage, transport)
+        ctx.engine.start()
+
+        ctx.commandChannel.send(SyncCommand.Cancel)
+
+        advanceUntilIdle()
+
+        // Engine should have stopped - sending more commands should not crash
+        // but they won't be processed
+        ctx.commandChannel.send(SyncCommand.Enqueue(createOperation("op-2", "entity-2")))
+
+        advanceUntilIdle()
+
+        ctx.engine.stop()
+    }
+
+    protected fun createEngineWithContext(
         scope: TestScope,
         storage: FakeStorageAdapter,
         transport: FakeTransportAdapter,
-    ): SyncEngine {
+    ): EngineWithContext {
         val retryPolicy = ExponentialBackoffRetryPolicy(maxAttempts = 3)
         val commandChannel = Channel<SyncCommand>(Channel.BUFFERED)
-        val queue = OperationQueue(retryPolicy)
+        val queue = InMemoryOperationQueue(retryPolicy)
 
-        return SyncEngine(
+        val engine = SyncEngine(
             scope = scope,
             commandChannel = commandChannel,
             operationQueue = queue,
@@ -91,11 +190,8 @@ abstract class SyncEngineContractTest {
             retryPolicy = retryPolicy,
             conflictResolver = LastWriteWinsConflictResolver(),
         )
-    }
 
-    protected suspend fun sendCommand(engine: SyncEngine, command: SyncCommand) {
-        // This is a placeholder - in real tests, we'd need access to the command channel
-        // For now, we'll use a different approach
+        return EngineWithContext(engine, commandChannel)
     }
 
     protected fun createEntity(

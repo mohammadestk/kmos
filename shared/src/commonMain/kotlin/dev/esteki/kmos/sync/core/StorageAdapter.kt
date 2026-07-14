@@ -7,4 +7,5 @@ interface StorageAdapter {
     suspend fun write(entity: SyncEntity)
     suspend fun delete(id: String)
     suspend fun queryPending(): List<SyncEntity>
+    suspend fun queryFailed(): List<SyncEntity>
 }

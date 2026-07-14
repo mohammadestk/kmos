@@ -20,6 +20,9 @@ class FakeStorageAdapter : StorageAdapter {
     override suspend fun queryPending(): List<SyncEntity> =
         entities.values.filter { it.syncState == SyncState.PendingUpload }
 
+    override suspend fun queryFailed(): List<SyncEntity> =
+        entities.values.filter { it.syncState == SyncState.Failed }
+
     fun clear() {
         entities.clear()
     }

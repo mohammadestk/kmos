@@ -32,7 +32,7 @@ class SyncEngineTest {
 
         val commandChannel = Channel<SyncCommand>(Channel.BUFFERED)
         val retryPolicy = ExponentialBackoffRetryPolicy(maxAttempts = 3)
-        val queue = OperationQueue(retryPolicy)
+        val queue = InMemoryOperationQueue(retryPolicy)
 
         val engine = SyncEngine(
             scope = testScope,
@@ -92,7 +92,7 @@ class SyncEngineTest {
 
         val commandChannel = Channel<SyncCommand>(Channel.BUFFERED)
         val retryPolicy = ExponentialBackoffRetryPolicy(maxAttempts = 3)
-        val queue = OperationQueue(retryPolicy)
+        val queue = InMemoryOperationQueue(retryPolicy)
 
         val engine = SyncEngine(
             scope = testScope,
@@ -143,7 +143,7 @@ class SyncEngineTest {
 
         val commandChannel = Channel<SyncCommand>(Channel.BUFFERED)
         val retryPolicy = ExponentialBackoffRetryPolicy(maxAttempts = 3)
-        val queue = OperationQueue(retryPolicy)
+        val queue = InMemoryOperationQueue(retryPolicy)
 
         val engine = SyncEngine(
             scope = testScope,
@@ -205,7 +205,7 @@ class SyncEngineTest {
 
         val commandChannel = Channel<SyncCommand>(Channel.BUFFERED)
         val retryPolicy = ExponentialBackoffRetryPolicy(maxAttempts = 3)
-        val queue = OperationQueue(retryPolicy)
+        val queue = InMemoryOperationQueue(retryPolicy)
 
         val engine = SyncEngine(
             scope = testScope,
@@ -242,6 +242,8 @@ class SyncEngineTest {
         }
         override suspend fun queryPending(): List<SyncEntity> =
             entities.values.filter { it.syncState == SyncState.PendingUpload }
+        override suspend fun queryFailed(): List<SyncEntity> =
+            entities.values.filter { it.syncState == SyncState.Failed }
     }
 
     private class FakeTransport : TransportAdapter {

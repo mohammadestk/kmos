@@ -16,6 +16,9 @@ interface SyncEntityDao {
     @Query("SELECT * FROM sync_entities WHERE syncState = 'PendingUpload'")
     suspend fun queryPending(): List<SyncEntityTable>
 
+    @Query("SELECT * FROM sync_entities WHERE syncState = 'Failed'")
+    suspend fun queryFailed(): List<SyncEntityTable>
+
     @Query("DELETE FROM sync_entities WHERE id = :id")
     suspend fun deleteById(id: String)
 }

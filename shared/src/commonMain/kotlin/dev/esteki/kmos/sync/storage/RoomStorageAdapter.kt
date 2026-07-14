@@ -28,6 +28,10 @@ class RoomStorageAdapter(
         return dao.queryPending().map { it.toDomain() }
     }
 
+    override suspend fun queryFailed(): List<SyncEntity> {
+        return dao.queryFailed().map { it.toDomain() }
+    }
+
     private fun SyncEntityTable.toDomain() = SyncEntity(
         id = id,
         version = version,
