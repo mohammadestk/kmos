@@ -12,7 +12,7 @@ kotlin {
     }
 }
 dependencies {
-    implementation(projects.shared)
+    implementation(projects.sample)
 
     implementation(libs.androidx.activity.compose)
 

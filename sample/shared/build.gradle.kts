@@ -52,10 +52,12 @@ kotlin {
             implementation(libs.compose.uiToolingPreview)
         }
         commonMain.dependencies {
-            api(projects.syncCore)
-            api(projects.syncStorage)
-            api(projects.syncNetwork)
-            api(projects.syncTrigger)
+            // SDK modules (resolved via composite build from parent project)
+            implementation("dev.esteki.kmos:sync-core")
+            implementation("dev.esteki.kmos:sync-storage")
+            implementation("dev.esteki.kmos:sync-network")
+            implementation("dev.esteki.kmos:sync-trigger")
+            
             api(libs.compose.runtime)
             api(libs.compose.foundation)
             api(libs.compose.material3)
@@ -78,7 +80,6 @@ kotlin {
             implementation(libs.kotlinx.serialization.json)
             implementation(libs.kotlinx.datetime)
             implementation(libs.turbine)
-            implementation(projects.syncTesting)
         }
         jsMain.dependencies {
             implementation(libs.wrappers.browser)
