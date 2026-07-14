@@ -80,6 +80,7 @@ kotlin {
             implementation(libs.kotlinx.serialization.json)
             implementation(libs.kotlinx.datetime)
             implementation(libs.turbine)
+            implementation("dev.esteki.kmos:sync-testing")
         }
         jsMain.dependencies {
             implementation(libs.wrappers.browser)

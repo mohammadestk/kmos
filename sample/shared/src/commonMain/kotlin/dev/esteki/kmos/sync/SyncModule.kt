@@ -1,5 +1,6 @@
 package dev.esteki.kmos.sync
 
+import dev.esteki.kmos.model.TodoRepository
 import dev.esteki.kmos.sync.core.ConflictResolver
 import dev.esteki.kmos.sync.core.ExponentialBackoffRetryPolicy
 import dev.esteki.kmos.sync.core.LastWriteWinsConflictResolver
@@ -12,6 +13,7 @@ import dev.esteki.kmos.sync.network.KtorTransportAdapter
 import dev.esteki.kmos.sync.storage.RoomStorageAdapter
 import dev.esteki.kmos.sync.storage.SyncDatabase
 import dev.esteki.kmos.sync.storage.createDatabase
+import dev.esteki.kmos.viewmodel.TodoViewModel
 import io.ktor.client.HttpClient
 import org.koin.dsl.module
 
@@ -32,4 +34,6 @@ fun syncModule(
             retry(get())
         }
     }
+    single { TodoRepository(get()) }
+    single { TodoViewModel(get(), get()) }
 }

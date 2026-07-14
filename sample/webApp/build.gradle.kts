@@ -20,7 +20,7 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
-            implementation(projects.sample)
+            implementation(projects.shared)
 
             implementation(libs.compose.ui)
         }
