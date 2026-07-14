@@ -10,5 +10,6 @@ actual fun createDatabase(name: String): SyncDatabase {
     )
         .setDriver(BundledSQLiteDriver())
         .setQueryCoroutineContext(Dispatchers.IO)
+        .fallbackToDestructiveMigration()
         .build()
 }

@@ -3,18 +3,18 @@ package dev.esteki.kmos.sync.core
 import dev.esteki.kmos.sync.core.model.OperationType
 import dev.esteki.kmos.sync.core.model.SyncError
 import dev.esteki.kmos.sync.core.model.SyncOperation
+import dev.esteki.kmos.sync.storage.createInMemoryDatabase
 import kotlinx.coroutines.test.runTest
+import kotlin.test.Ignore
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertTrue
 
-class OperationQueueTest {
+@Ignore("BundledSQLiteDriver native library cannot load in JVM tests")
+class RoomOperationQueueTest {
 
-    private val retryPolicy = ExponentialBackoffRetryPolicy(
-        maxAttempts = 3,
-    )
-
-    private val queue = InMemoryOperationQueue(retryPolicy)
+    private val retryPolicy = ExponentialBackoffRetryPolicy(maxAttempts = 3)
+    private val database = createInMemoryDatabase()
+    private val queue = RoomOperationQueue(database, retryPolicy)
 
     @Test
     fun enqueueAndDequeue() = runTest {
@@ -79,6 +79,17 @@ class OperationQueueTest {
 
         queue.clear()
         assertEquals(0, queue.size())
+    }
+
+    @Test
+    fun persistsAcrossInstances() = runTest {
+        queue.enqueue(createOperation("op-1"))
+
+        // Create a new queue instance with the same database
+        val queue2 = RoomOperationQueue(database, retryPolicy)
+        val pending = queue2.dequeuePending()
+        assertEquals(1, pending.size)
+        assertEquals("op-1", pending[0].operationId)
     }
 
     private fun createOperation(
