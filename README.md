@@ -63,10 +63,10 @@ repositories {
 }
 
 dependencies {
-    implementation("com.github.mohammadestk.Kmos:syncCore:Tag")
-    implementation("com.github.mohammadestk.Kmos:syncStorage:Tag")
-    implementation("com.github.mohammadestk.Kmos:syncNetwork:Tag")
-    implementation("com.github.mohammadestk.Kmos:syncTrigger:Tag")
+    implementation("com.github.mohammadestk.Kmos:sync-core:Tag")
+    implementation("com.github.mohammadestk.Kmos:sync-storage:Tag")
+    implementation("com.github.mohammadestk.Kmos:sync-network:Tag")
+    implementation("com.github.mohammadestk.Kmos:sync-trigger:Tag")
 }
 ```
 
@@ -222,16 +222,16 @@ DefaultSyncTrigger(
 
 ```bash
 # Core engine tests
-./gradlew :syncCore:jvmTest
+./gradlew :sync-core:jvmTest
 
 # Trigger tests
-./gradlew :syncTrigger:jvmTest
+./gradlew :sync-trigger:jvmTest
 
 # Storage compilation
-./gradlew :syncStorage:compileKotlinJvm
+./gradlew :sync-storage:compileKotlinJvm
 
 # Network compilation
-./gradlew :syncNetwork:compileKotlinJvm
+./gradlew :sync-network:compileKotlinJvm
 
 # Sample app tests
 ./gradlew :sample:jvmTest
@@ -243,19 +243,19 @@ DefaultSyncTrigger(
 
 ```
 kmos/
-├── syncCore/                    # Core engine, interfaces, models
-├── syncStorage/                 # Room 3 storage adapter
-├── syncNetwork/                 # Ktor transport adapter
-├── syncTrigger/                 # Lifecycle hooks and trigger management
-├── syncTesting/                 # Test utilities (not published)
-├── sample/                      # Demo apps
-│   ├── shared/                  # Shared UI code
-│   ├── androidApp/              # Android app
-│   ├── desktopApp/              # Desktop app
-│   ├── webApp/                  # Web app
-│   └── iosApp/                  # iOS app
-├── specs/                       # Design specifications
-└── gradle/                      # Build configuration
+├── sync-core/                  # Core engine, interfaces, models
+├── sync-storage/               # Room 3 storage adapter
+├── sync-network/               # Ktor transport adapter
+├── sync-trigger/               # Lifecycle hooks and trigger management
+├── sync-testing/               # Test utilities (not published)
+├── sample/                     # Demo apps
+│   ├── shared/                 # Shared UI code
+│   ├── androidApp/             # Android app
+│   ├── desktopApp/             # Desktop app
+│   ├── webApp/                 # Web app
+│   └── iosApp/                 # iOS app
+├── specs/                      # Design specifications
+└── gradle/                     # Build configuration
 ```
 
 ---

@@ -19,7 +19,7 @@ Kotlin Multiplatform Offline Sync SDK. The spec (`specs/kmos_specs.md`) is the s
 # Web (JS — older browsers)
 ./gradlew :webApp:jsBrowserDevelopmentRun
 
-# iOS — open iosApp/ in Xcode, run from there
+# iOS — open sample/iosApp/ in Xcode, run from there
 ```
 
 ## Test Commands
@@ -27,14 +27,14 @@ Kotlin Multiplatform Offline Sync SDK. The spec (`specs/kmos_specs.md`) is the s
 Run all tests across modules:
 
 ```bash
-./gradlew :syncCore:jvmTest               # Core engine tests
-./gradlew :syncTrigger:jvmTest            # Trigger tests
-./gradlew :syncStorage:compileKotlinJvm   # Storage compilation
-./gradlew :syncNetwork:compileKotlinJvm   # Network compilation
-./gradlew :shared:jvmTest                 # Shared/demo tests
+./gradlew :sync-core:jvmTest               # Core engine tests
+./gradlew :sync-trigger:jvmTest            # Trigger tests
+./gradlew :sync-storage:compileKotlinJvm   # Storage compilation
+./gradlew :sync-network:compileKotlinJvm   # Network compilation
+./gradlew :sample:jvmTest                  # Sample app tests
 ```
 
-iOS tests require an Xcode-managed simulator. If `iosSimulatorArm64Test` fails with a simulator not found error, create one via `xcrun simctl create.
+iOS tests require an Xcode-managed simulator. If `iosSimulatorArm64Test` fails with a simulator not found error, create one via `xcrun simctl create`.
 
 ## Architecture (non-obvious)
 
@@ -47,35 +47,45 @@ iOS tests require an Xcode-managed simulator. If `iosSimulatorArm64Test` fails w
 ## Modules
 
 ```
-syncCore        interfaces, models, engine, operation queue, retry policy
-syncStorage     StorageAdapter + Room reference impl, DatabaseFactory expect/actuals
-syncNetwork     TransportAdapter + Ktor reference impl
-syncTrigger     lifecycle hooks, manual trigger, optional in-process interval
-syncTesting     fake adapters, contract test base classes, deterministic clocks
-shared          demo app (App.kt, Platform.kt) + convenience builders (SyncClientBuilder, SyncModule)
+SDK Modules (core library):
+sync-core        interfaces, models, engine, operation queue, retry policy
+sync-storage     StorageAdapter + Room reference impl, DatabaseFactory expect/actuals
+sync-network     TransportAdapter + Ktor reference impl
+sync-trigger     lifecycle hooks, manual trigger, optional in-process interval
+sync-testing     fake adapters, contract test base classes, deterministic clocks
+
+Sample App:
+sample/         demo app module (App.kt, Platform.kt, SyncClientBuilder.kt, SyncModule.kt)
+sample/androidApp/    Android app shell
+sample/desktopApp/    Desktop app shell
+sample/webApp/        Web app shell
+sample/iosApp/        iOS app (Xcode project)
 ```
 
 ### Module Dependencies
 
 ```
-syncCore          (no SDK deps)
-syncTrigger       → syncCore
-syncTesting       → syncCore
-syncStorage       → syncCore (+ Room3, KSP)
-syncNetwork       → syncCore (+ Ktor)
-shared            → syncCore, syncStorage, syncNetwork, syncTrigger (+ Compose, Koin)
+sync-core          (no SDK deps)
+sync-trigger       → sync-core
+sync-testing       → sync-core
+sync-storage       → sync-core (+ Room3, KSP)
+sync-network       → sync-core (+ Ktor)
+sample             → sync-core, sync-storage, sync-network, sync-trigger (+ Compose, Koin)
+sample/androidApp  → sample
+sample/desktopApp  → sample
+sample/webApp      → sample
 ```
 
 Conflict resolution: LWW (default, uses `updatedAt`) or app-supplied `ConflictResolver<T>` callback.
 
 ## Source Set Layout
 
-Each module follows this structure:
+Each SDK module follows this structure:
 ```
 <module>/src/
   commonMain/    Shared code (interfaces, implementations)
   commonTest/    Tests (if any)
-  androidMain/   Android actuals (Room bootstrap only for syncStorage)
+  androidMain/   Android actuals (Room bootstrap only for sync-storage)
   iosMain/       iOS actuals
   jvmMain/       JVM/Desktop actuals
   jsMain/        JS/Web actuals
@@ -89,7 +99,7 @@ Each module follows this structure:
 - JDK 21 (Amazon Corretto — see `gradle-daemon-jvm.properties`)
 - Configuration cache + build caching enabled
 - Version catalog: `gradle/libs.versions.toml`
-- Typesafe project accessors: use `projects.syncCore`, not `":syncCore"`
+- Typesafe project accessors: use `projects.syncCore`, not `":sync-core"`
 
 ## Conventions
 

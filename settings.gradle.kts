@@ -32,14 +32,11 @@ plugins {
     id("org.gradle.toolchains.foojay-resolver-convention") version "1.0.0"
 }
 
-include(":androidApp")
-include(":desktopApp")
-include(":shared")
-include(":webApp")
-include(":sqliteWasmWorker")
+// SDK Modules
+include(":sync-core")
+include(":sync-trigger")
+include(":sync-testing")
+include(":sync-storage")
+include(":sync-network")
 include(":sqlJsWorker")
-include(":syncCore")
-include(":syncTrigger")
-include(":syncTesting")
-include(":syncStorage")
-include(":syncNetwork")
+include(":sqliteWasmWorker")
