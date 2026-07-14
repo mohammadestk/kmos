@@ -33,8 +33,7 @@ abstract class TransportAdapterContractTest {
 
         val result = adapter.push(op)
 
-        // This test assumes the adapter returns Success by default
-        // Override in specific adapter tests to test conflict behavior
+        // Default adapter returns Success; override in specific adapter tests
         assertTrue(result is PushResult.Success)
     }
 
@@ -44,8 +43,7 @@ abstract class TransportAdapterContractTest {
 
         val result = adapter.pull(null)
 
-        // This test assumes the adapter returns empty list by default
-        // Override in specific adapter tests to test pull behavior
+        // Default adapter returns empty list; override in specific adapter tests
         assertEquals(0, result.entities.size)
     }
 
@@ -55,17 +53,56 @@ abstract class TransportAdapterContractTest {
 
         val result = adapter.pull(null)
 
-        // This test assumes the adapter returns null cursor by default
-        // Override in specific adapter tests to test pagination
+        assertEquals(null, result.nextCursor)
+    }
+
+    @Test
+    fun pushWithCreateOperation() = kotlinx.coroutines.test.runTest {
+        val adapter = createAdapter()
+        val op = createOperation("op-create", type = OperationType.Create)
+
+        val result = adapter.push(op)
+
+        assertTrue(result is PushResult.Success || result is PushResult.Error)
+    }
+
+    @Test
+    fun pushWithUpdateOperation() = kotlinx.coroutines.test.runTest {
+        val adapter = createAdapter()
+        val op = createOperation("op-update", type = OperationType.Update)
+
+        val result = adapter.push(op)
+
+        assertTrue(result is PushResult.Success || result is PushResult.Error)
+    }
+
+    @Test
+    fun pushWithDeleteOperation() = kotlinx.coroutines.test.runTest {
+        val adapter = createAdapter()
+        val op = createOperation("op-delete", type = OperationType.Delete)
+
+        val result = adapter.push(op)
+
+        assertTrue(result is PushResult.Success || result is PushResult.Error)
+    }
+
+    @Test
+    fun pullWithCursorParameter() = kotlinx.coroutines.test.runTest {
+        val adapter = createAdapter()
+
+        val result = adapter.pull("test-cursor")
+
+        // Verify the adapter handles cursor parameter without crashing
         assertEquals(null, result.nextCursor)
     }
 
     protected fun createOperation(
         operationId: String = "op-1",
+        type: OperationType = OperationType.Create,
     ) = SyncOperation(
         operationId = operationId,
         entityId = "entity-1",
-        type = OperationType.Create,
+        type = type,
         attempt = 0,
         payload = byteArrayOf(),
     )
