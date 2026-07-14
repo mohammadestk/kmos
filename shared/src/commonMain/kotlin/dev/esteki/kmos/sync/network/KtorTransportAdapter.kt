@@ -7,10 +7,12 @@ import dev.esteki.kmos.sync.core.model.PushResult
 import dev.esteki.kmos.sync.core.model.SyncEntity
 import dev.esteki.kmos.sync.core.model.SyncError
 import dev.esteki.kmos.sync.core.model.SyncOperation
+import dev.esteki.kmos.sync.core.model.SyncState
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.delete
 import io.ktor.client.request.get
+import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.put
 import io.ktor.client.request.setBody
@@ -21,38 +23,46 @@ import io.ktor.http.isSuccess
 import kotlinx.io.IOException
 import kotlin.io.encoding.Base64
 import kotlin.io.encoding.ExperimentalEncodingApi
+import kotlin.time.Clock
 
 class KtorTransportAdapter(
     private val httpClient: HttpClient,
     private val baseUrl: String,
+    private val endpoints: SyncEndpoints = SyncEndpoints(),
 ) : TransportAdapter {
 
     @OptIn(ExperimentalEncodingApi::class)
     override suspend fun push(op: SyncOperation): PushResult {
         return try {
-            val body = ServerObject(
-                id = op.entityId,
-                name = op.entityId,
-                data = Base64.encode(op.payload),
+            val body = SyncPushRequest(
+                entityId = op.entityId,
+                operationType = op.type.name,
+                operationId = op.operationId,
+                payload = Base64.encode(op.payload),
             )
 
+            val url = "$baseUrl${endpoints.pushUrl(op)}"
             val response = when (op.type) {
                 OperationType.Create -> {
-                    httpClient.post("$baseUrl/objects") {
+                    httpClient.post(url) {
                         contentType(ContentType.Application.Json)
+                        header("X-Idempotency-Key", op.operationId)
                         setBody(body)
                     }
                 }
 
                 OperationType.Update -> {
-                    httpClient.put("$baseUrl/objects/${op.entityId}") {
+                    httpClient.put(url) {
                         contentType(ContentType.Application.Json)
+                        header("X-Idempotency-Key", op.operationId)
                         setBody(body)
                     }
                 }
 
                 OperationType.Delete -> {
-                    httpClient.delete("$baseUrl/objects/${op.entityId}")
+                    httpClient.delete(url) {
+                        header("X-Idempotency-Key", op.operationId)
+                    }
                 }
             }
 
@@ -64,8 +74,13 @@ class KtorTransportAdapter(
                 }
 
                 response.status.isSuccess() -> {
+                    val pushResponse = try {
+                        response.body<SyncPushResponse>()
+                    } catch (e: Exception) {
+                        null
+                    }
                     PushResult.Success(
-                        version = kotlin.time.Clock.System.now().toEpochMilliseconds()
+                        version = pushResponse?.version ?: Clock.System.now().toEpochMilliseconds()
                     )
                 }
 
@@ -90,20 +105,15 @@ class KtorTransportAdapter(
     @OptIn(ExperimentalEncodingApi::class)
     override suspend fun pull(cursor: String?): PullResult {
         return try {
-            val response = httpClient.get("$baseUrl/objects")
+            val url = "$baseUrl${endpoints.pullUrl(cursor)}"
+            val response = httpClient.get(url)
             if (response.status.isSuccess()) {
-                val objects = response.body<List<ServerObject>>()
-                val entities = objects.map {
-                    SyncEntity(
-                        id = it.id,
-                        version = kotlin.time.Clock.System.now().toEpochMilliseconds(),
-                        updatedAt = kotlin.time.Clock.System.now(),
-                        deleted = false,
-                        syncState = dev.esteki.kmos.sync.core.model.SyncState.Synced,
-                        payload = Base64.decode(it.data),
-                    )
-                }
-                PullResult(entities = entities, nextCursor = null)
+                val pullResponse = response.body<SyncPullResponse>()
+                val entities = pullResponse.entities.map { it.toSyncEntity() }
+                PullResult(
+                    entities = entities,
+                    nextCursor = pullResponse.nextCursor,
+                )
             } else {
                 PullResult(entities = emptyList(), nextCursor = null)
             }
@@ -115,17 +125,11 @@ class KtorTransportAdapter(
     @OptIn(ExperimentalEncodingApi::class)
     private suspend fun fetchEntity(entityId: String): SyncEntity? {
         return try {
-            val response = httpClient.get("$baseUrl/objects/$entityId")
+            val url = "$baseUrl${endpoints.singleEntityUrl(entityId)}"
+            val response = httpClient.get(url)
             if (response.status.isSuccess()) {
-                val obj = response.body<ServerObject>()
-                SyncEntity(
-                    id = obj.id,
-                    version = kotlin.time.Clock.System.now().toEpochMilliseconds(),
-                    updatedAt = kotlin.time.Clock.System.now(),
-                    deleted = false,
-                    syncState = dev.esteki.kmos.sync.core.model.SyncState.Synced,
-                    payload = Base64.decode(obj.data),
-                )
+                val obj = response.body<SyncEntityResponse>()
+                obj.toSyncEntity()
             } else null
         } catch (e: Exception) {
             null

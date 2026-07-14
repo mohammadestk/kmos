@@ -28,6 +28,6 @@ class KtorTransportAdapterTest : TransportAdapterContractTest() {
                 })
             }
         }
-        return KtorTransportAdapter(httpClient, "https://api.restful-api.dev")
+        return KtorTransportAdapter(httpClient, "https://test.example.com")
     }
 }
