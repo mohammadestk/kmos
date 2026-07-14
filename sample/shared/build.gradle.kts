@@ -70,6 +70,8 @@ kotlin {
             api(libs.kotlinx.datetime)
             api(libs.kotlinx.serialization.json)
             api(libs.koin.core)
+            implementation(libs.koin.compose)
+            implementation(libs.koin.compose.viewmodel)
             implementation(libs.ktor.client.core)
             implementation(libs.ktor.client.content.negotiation)
             implementation(libs.ktor.serialization.json)
