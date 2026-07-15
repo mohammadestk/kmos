@@ -15,14 +15,21 @@ import dev.esteki.kmos.sync.storage.RoomStorageAdapter
 import dev.esteki.kmos.sync.storage.SyncDatabase
 import dev.esteki.kmos.sync.storage.createDatabase
 import io.ktor.client.HttpClient
+import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.serialization.kotlinx.json.json
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.serialization.json.Json
 import org.koin.dsl.module
 import org.koin.plugin.module.dsl.viewModel
 
 val appModule = module {
     val databaseName = "sync.db"
-    val httpClient = HttpClient()
+    val httpClient = HttpClient {
+        install(ContentNegotiation) {
+            json(Json { ignoreUnknownKeys = true })
+        }
+    }
     val baseUrl = "https://api.restful-api.dev"
 
     single<SyncDatabase> { createDatabase(databaseName) }

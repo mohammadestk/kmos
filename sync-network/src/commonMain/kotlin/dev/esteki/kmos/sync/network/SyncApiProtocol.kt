@@ -3,47 +3,38 @@ package dev.esteki.kmos.sync.network
 import dev.esteki.kmos.sync.core.model.SyncEntity
 import dev.esteki.kmos.sync.core.model.SyncState
 import kotlinx.serialization.Serializable
-import kotlin.io.encoding.Base64
-import kotlin.io.encoding.ExperimentalEncodingApi
+import kotlinx.serialization.json.JsonElement
 import kotlin.time.Clock
 
 @Serializable
-internal data class SyncPushRequest(
-    val entityId: String,
-    val operationType: String,
-    val operationId: String,
-    val payload: String,
-)
-
-@Serializable
-internal data class SyncPushResponse(
-    val version: Long,
-    val entityId: String,
-)
-
-@Serializable
-internal data class SyncPullResponse(
-    val entities: List<SyncEntityResponse>,
-    val nextCursor: String? = null,
-)
-
-@Serializable
-internal data class SyncEntityResponse(
+internal data class RestObject(
     val id: String,
-    val version: Long,
-    val updatedAt: Long,
-    val deleted: Boolean = false,
-    val payload: String,
-) {
-    @OptIn(ExperimentalEncodingApi::class)
-    fun toSyncEntity() = SyncEntity(
-        id = id,
-        version = version,
-        updatedAt = kotlin.time.Instant.fromEpochMilliseconds(updatedAt),
-        deleted = deleted,
-        syncState = SyncState.Synced,
-        payload = Base64.decode(payload),
-    )
-}
+    val name: String,
+    val data: JsonElement? = null,
+)
 
+@Serializable
+internal data class CreateObjectRequest(
+    val name: String,
+    val data: JsonElement? = null,
+)
 
+@Serializable
+internal data class UpdateObjectRequest(
+    val name: String,
+    val data: JsonElement? = null,
+)
+
+@Serializable
+internal data class DeleteResponse(
+    val message: String,
+)
+
+internal fun RestObject.toSyncEntity() = SyncEntity(
+    id = id,
+    version = 1L,
+    updatedAt = Clock.System.now(),
+    deleted = false,
+    syncState = SyncState.Synced,
+    payload = data.toString().encodeToByteArray(),
+)

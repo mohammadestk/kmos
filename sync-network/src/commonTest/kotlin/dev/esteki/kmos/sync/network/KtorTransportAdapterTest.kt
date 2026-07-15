@@ -17,11 +17,51 @@ import kotlin.test.Test
 class KtorTransportAdapterTest : TransportAdapterContractTest() {
     override fun createAdapter(): TransportAdapter {
         val mockEngine = MockEngine { request ->
-            respond(
-                content = "[]",
-                status = HttpStatusCode.OK,
-                headers = headersOf(ContentType.Application.Json.toString(), "application/json")
-            )
+            val method = request.method.value
+            val path = request.url.encodedPath
+            val jsonHeaders = headersOf(ContentType.Application.Json.toString(), "application/json")
+
+            when {
+                method == "GET" && path == "/objects" -> {
+                    respond(
+                        content = """[{"id":"1","name":"test-object","data":{"key":"value"}}]""",
+                        status = HttpStatusCode.OK,
+                        headers = jsonHeaders,
+                    )
+                }
+
+                method == "POST" && path == "/objects" -> {
+                    respond(
+                        content = """{"id":"1","name":"test-object","data":null}""",
+                        status = HttpStatusCode.OK,
+                        headers = jsonHeaders,
+                    )
+                }
+
+                method == "PUT" && path.startsWith("/objects/") -> {
+                    respond(
+                        content = """{"id":"1","name":"test-object","data":null}""",
+                        status = HttpStatusCode.OK,
+                        headers = jsonHeaders,
+                    )
+                }
+
+                method == "DELETE" && path.startsWith("/objects/") -> {
+                    respond(
+                        content = """{"message":"Object with id = 1, has been deleted."}""",
+                        status = HttpStatusCode.OK,
+                        headers = jsonHeaders,
+                    )
+                }
+
+                else -> {
+                    respond(
+                        content = """{"error":"not found"}""",
+                        status = HttpStatusCode.NotFound,
+                        headers = jsonHeaders,
+                    )
+                }
+            }
         }
         val httpClient = HttpClient(mockEngine) {
             install(ContentNegotiation) {
