@@ -1,4 +1,4 @@
-package dev.esteki.ipulse.worker
+package dev.esteki.kmos.worker
 
 import androidx.sqlite.driver.web.WebWorkerSQLiteDriver
 

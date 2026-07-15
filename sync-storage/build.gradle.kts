@@ -61,8 +61,8 @@ kotlin {
         }
         webMain.dependencies {
             implementation(libs.androidx.sqlite.web)
-            implementation(projects.sqliteWasmWorker)
-            implementation(projects.sqlJsWorker)
+            api(projects.sqliteWasmWorker)
+            api(projects.sqlJsWorker)
         }
     }
 }
