@@ -65,9 +65,9 @@ repositories {
 }
 
 dependencies {
-    implementation("com.github.mohammadestk.Kmos:sync-core:Tag")
-    implementation("com.github.mohammadestk.Kmos:sync-storage:Tag")
-    implementation("com.github.mohammadestk.Kmos:sync-network:Tag")
+    implementation("com.github.mohammadestk.kmos:sync-core:Tag")
+    implementation("com.github.mohammadestk.kmos:sync-storage:Tag")
+    implementation("com.github.mohammadestk.kmos:sync-network:Tag")
 }
 ```
 
