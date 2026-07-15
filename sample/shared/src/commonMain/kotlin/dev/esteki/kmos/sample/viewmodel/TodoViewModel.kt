@@ -7,7 +7,6 @@ import dev.esteki.kmos.sample.model.TodoRepository
 import dev.esteki.kmos.sync.core.SyncClient
 import dev.esteki.kmos.sync.core.model.SyncEntity
 import dev.esteki.kmos.sync.core.model.SyncProgress
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
@@ -21,17 +20,14 @@ class TodoViewModel(
     val items: StateFlow<List<TodoItem>> = todoRepository.observeAll()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    private val _syncProgress = MutableStateFlow<SyncProgress>(SyncProgress.Idle)
-    val syncProgress: StateFlow<SyncProgress> = _syncProgress
+    val syncProgress: StateFlow<SyncProgress> = syncClient.progress
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), SyncProgress.Idle)
 
     val failedOperations: StateFlow<List<SyncEntity>> = syncClient.failedOperations
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     init {
         syncClient.start()
-        viewModelScope.launch {
-            syncClient.progress.collect { _syncProgress.value = it }
-        }
     }
 
     fun addTodo(title: String) {

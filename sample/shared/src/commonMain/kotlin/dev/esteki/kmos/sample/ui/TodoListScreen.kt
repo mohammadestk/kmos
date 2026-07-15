@@ -19,6 +19,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.esteki.kmos.sample.viewmodel.TodoViewModel
 
 @Composable
@@ -26,9 +27,9 @@ fun TodoListScreen(
     viewModel: TodoViewModel,
     modifier: Modifier = Modifier,
 ) {
-    val items by viewModel.items.collectAsState()
-    val syncProgress by viewModel.syncProgress.collectAsState()
-    val failedOperations by viewModel.failedOperations.collectAsState()
+    val items by viewModel.items.collectAsStateWithLifecycle()
+    val syncProgress by viewModel.syncProgress.collectAsStateWithLifecycle()
+    val failedOperations by viewModel.failedOperations.collectAsStateWithLifecycle()
     var showAddDialog by remember { mutableStateOf(false) }
 
     Scaffold(
