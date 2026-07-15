@@ -14,6 +14,9 @@ kotlin {
 dependencies {
     implementation(projects.shared)
 
+    implementation("dev.esteki.kmos:sync-storage")
+
+
     implementation(libs.androidx.activity.compose)
 
     implementation(libs.compose.uiToolingPreview)
@@ -21,11 +24,11 @@ dependencies {
 }
 
 android {
-    namespace = "dev.esteki.kmos"
+    namespace = "dev.esteki.kmos.sample"
     compileSdk = libs.versions.android.compileSdk.get().toInt()
 
     defaultConfig {
-        applicationId = "dev.esteki.kmos"
+        applicationId = "dev.esteki.kmos.sample"
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
         versionCode = 1

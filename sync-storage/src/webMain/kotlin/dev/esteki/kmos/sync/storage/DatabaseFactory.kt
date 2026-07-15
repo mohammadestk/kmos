@@ -8,9 +8,3 @@ actual fun createDatabase(name: String): SyncDatabase {
         .setDriver(createSQLiteWasmWorker())
         .fallbackToDestructiveMigration(dropAllTables = true).build()
 }
-
-actual fun createInMemoryDatabase(): SyncDatabase {
-    return Room.inMemoryDatabaseBuilder<SyncDatabase>()
-        .setDriver(createSQLiteWasmWorker())
-        .fallbackToDestructiveMigration(dropAllTables = true).build()
-}

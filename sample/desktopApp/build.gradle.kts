@@ -17,11 +17,11 @@ dependencies {
 
 compose.desktop {
     application {
-        mainClass = "dev.esteki.kmos.MainKt"
+        mainClass = "dev.esteki.kmos.sample.MainKt"
 
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
-            packageName = "dev.esteki.kmos"
+            packageName = "dev.esteki.kmos.sample"
             packageVersion = "1.0.0"
         }
     }
