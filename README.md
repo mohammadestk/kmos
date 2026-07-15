@@ -24,7 +24,7 @@ Kmos is a **Kotlin Multiplatform SDK** for building offline-first applications w
 │                      SyncRepository<T>                           │
 │                       (typed APIs)                               │
 ├──────────────────────────────────────────────────────────────────┤
-│                        Sync Engine                               │
+│                        Sync Client                               │
 │            ┌─────────────┼─────────────┐                         │
 │            ▼             ▼             ▼                         │
 │     Operation Queue  Retry Policy  Conflict Resolver             │
@@ -91,8 +91,11 @@ val client = SyncClient.build(scope) {
 ### 3. Use SyncRepository
 
 ```kotlin
-// Get a typed repository
-val tasks: SyncRepository<Task> = client.repository()
+// Create a typed repository
+val tasks: SyncRepository<Task> = client.repository(
+    serialize = { it.toSyncEntity() },
+    deserialize = { it.toTask() },
+)
 
 // Observe all tasks
 tasks.observeAll().collect { taskList ->
@@ -121,6 +124,7 @@ client.failedOperations().collect { failed ->
 
 | Component | Purpose |
 |-----------|---------|
+| `SyncRepository<T>` | Typed CRUD interface, serializes domain models to SyncEntity |
 | `SyncClient` | Public entry point, builder DSL |
 | `SyncEngine` | Single-writer, Channel-driven command processor |
 | `OperationQueue` | Persisted queue with idempotency deduplication |

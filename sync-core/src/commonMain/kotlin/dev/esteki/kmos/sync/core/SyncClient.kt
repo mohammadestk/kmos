@@ -1,5 +1,6 @@
 package dev.esteki.kmos.sync.core
 
+import dev.esteki.kmos.sync.core.model.OperationType
 import dev.esteki.kmos.sync.core.model.SyncEntity
 import dev.esteki.kmos.sync.core.model.SyncOperation
 import dev.esteki.kmos.sync.core.model.SyncProgress
@@ -12,7 +13,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
+import kotlin.time.Clock
 import kotlin.uuid.Uuid
 
 class SyncClient private constructor(
@@ -42,20 +45,6 @@ class SyncClient private constructor(
         }
     }
 
-    fun <T : Any> repository(
-        observe: (id: String) -> Flow<T?>,
-        observeAll: () -> Flow<List<T>>,
-        upsert: suspend (T) -> Unit,
-        delete: suspend (String) -> Unit,
-    ): SyncRepository<T> {
-        return object : SyncRepository<T> {
-            override fun observe(id: String): Flow<T?> = observe(id)
-            override fun observeAll(): Flow<List<T>> = observeAll()
-            override suspend fun upsert(value: T) = upsert(value)
-            override suspend fun delete(id: String) = delete(id)
-        }
-    }
-
     fun stop() {
         syncTrigger?.stopInterval()
         engine.stop()
@@ -67,11 +56,17 @@ class SyncClient private constructor(
         }
     }
 
+    fun enqueue(operation: SyncOperation) {
+        scope.launch {
+            commandChannel.send(SyncCommand.Enqueue(operation))
+        }
+    }
+
     fun retry(entity: SyncEntity) {
         val operation = SyncOperation(
             operationId = Uuid.random().toString(),
             entityId = entity.id,
-            type = dev.esteki.kmos.sync.core.model.OperationType.Update,
+            type = OperationType.Update,
             attempt = 0,
             payload = entity.payload,
         )
@@ -85,6 +80,70 @@ class SyncClient private constructor(
         scope.launch {
             storageAdapter.write(entity.copy(syncState = SyncState.LocalOnly))
             refreshFailedOperations()
+        }
+    }
+
+    fun <T : Any> repository(
+        serialize: (T) -> SyncEntity,
+        deserialize: (SyncEntity) -> T,
+    ): SyncRepository<T> {
+        return object : SyncRepository<T> {
+            override suspend fun read(id: String): T? {
+                val entity = storageAdapter.read(id) ?: return null
+                if (entity.deleted) return null
+                return deserialize(entity)
+            }
+
+            override suspend fun readAll(): List<T> {
+                val pending = storageAdapter.queryPending()
+                val failed = storageAdapter.queryFailed()
+                return (pending + failed).filter { !it.deleted }.map { deserialize(it) }
+            }
+
+            override suspend fun upsert(value: T) {
+                val entity = serialize(value)
+                val existing = storageAdapter.read(entity.id)
+                val now = Clock.System.now()
+                val writeEntity = if (existing != null) {
+                    entity.copy(
+                        version = existing.version,
+                        updatedAt = now,
+                    )
+                } else {
+                    entity.copy(updatedAt = now)
+                }
+                storageAdapter.write(writeEntity)
+                val type = if (existing == null) OperationType.Create else OperationType.Update
+                val operation = SyncOperation(
+                    operationId = Uuid.random().toString(),
+                    entityId = writeEntity.id,
+                    type = type,
+                    attempt = 0,
+                    payload = writeEntity.payload,
+                )
+                enqueue(operation)
+            }
+
+            override suspend fun delete(id: String) {
+                val existing = storageAdapter.read(id)
+                if (existing != null) {
+                    storageAdapter.write(existing.copy(deleted = true, syncState = SyncState.PendingUpload))
+                    val operation = SyncOperation(
+                        operationId = Uuid.random().toString(),
+                        entityId = id,
+                        type = OperationType.Delete,
+                        attempt = 0,
+                        payload = existing.payload,
+                    )
+                    enqueue(operation)
+                }
+            }
+
+            override fun observeAll(): Flow<List<T>> = flow {
+                val pending = storageAdapter.queryPending()
+                val failed = storageAdapter.queryFailed()
+                emit((pending + failed).filter { !it.deleted }.map { deserialize(it) })
+            }
         }
     }
 

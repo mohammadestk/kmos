@@ -70,11 +70,9 @@ no per-platform proving phase, no per-platform glue code to write.
 ```text
 App
  │
- Public API (typed repositories)
+ SyncRepository<T> (typed CRUD, serializes to SyncEntity)
  │
- SyncRepository<T>
- │
- Sync Engine (single-writer, Channel-driven command queue)
+ Sync Client (single-writer, Channel-driven command queue)
  ├── Operation Queue (persisted, idempotency-keyed)
  ├── Retry Policy (exponential backoff + jitter, dead-letter,
  │                 triggered by failure — no connectivity API needed)
@@ -134,10 +132,11 @@ retry and conflict paths.
 
 ```kotlin
 interface SyncRepository<T> {
-    fun observe(id: String): Flow<T?>
-    fun observeAll(): Flow<List<T>>
+    suspend fun read(id: String): T?
+    suspend fun readAll(): List<T>
     suspend fun upsert(value: T)
     suspend fun delete(id: String)
+    fun observeAll(): Flow<List<T>>
 }
 
 interface StorageAdapter {
@@ -265,10 +264,13 @@ val client = SyncClient {
     syncInterval(5.minutes)       // optional, only while process is alive
 }
 
-val tasks: SyncRepository<Task> = client.repository()
+val tasks: SyncRepository<Task> = client.repository(
+    serialize = { it.toSyncEntity() },
+    deserialize = { it.toTask() },
+)
 
-tasks.observeAll().collect { /* render */ }
-tasks.upsert(updatedTask)
+tasks.upsert(updatedTask)  // writes to StorageAdapter + enqueues sync
+tasks.readAll()            // reads from StorageAdapter
 
 client.trigger()  // manual sync, e.g. pull-to-refresh
 

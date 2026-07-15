@@ -9,7 +9,6 @@ import dev.esteki.kmos.sync.testing.FakeStorageAdapter
 import dev.esteki.kmos.sync.testing.FakeTransportAdapter
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -89,46 +88,6 @@ class SyncClientTest {
     }
 
     @Test
-    fun repositoryDelegatesToLambdas() = runTest {
-        val storage = FakeStorageAdapter()
-        val transport = FakeTransportAdapter()
-
-        val client = SyncClient.build(this) {
-            storage(storage)
-            transport(transport)
-        }
-
-        var observedId: String? = null
-        var observedAllCalled = false
-        var upsertedValue: String? = null
-        var deletedId: String? = null
-
-        val repo = client.repository<String>(
-            observe = { id -> observedId = id; flowOf(null) },
-            observeAll = { observedAllCalled = true; flowOf(emptyList()) },
-            upsert = { value -> upsertedValue = value },
-            delete = { id -> deletedId = id }
-        )
-
-        // Test observe delegation
-        val result = repo.observe("test-id")
-        result.first()
-        assertEquals("test-id", observedId)
-
-        // Test observeAll delegation
-        repo.observeAll().first()
-        assertEquals(true, observedAllCalled)
-
-        // Test upsert delegation
-        repo.upsert("test-value")
-        assertEquals("test-value", upsertedValue)
-
-        // Test delete delegation
-        repo.delete("delete-id")
-        assertEquals("delete-id", deletedId)
-    }
-
-    @Test
     fun failedOperationsInitiallyEmpty() = runTest {
         val storage = FakeStorageAdapter()
         val transport = FakeTransportAdapter()
@@ -195,5 +154,68 @@ class SyncClientTest {
         // Wait for discard to be processed
         delay(100)
         client.stop()
+    }
+
+    @Test
+    fun repositoryWritesToStorageAndEnqueues() = runTest {
+        val storage = FakeStorageAdapter()
+        val transport = FakeTransportAdapter()
+
+        val client = SyncClient.build(this) {
+            storage(storage)
+            transport(transport)
+        }
+
+        val repo = client.repository<String>(
+            serialize = { id ->
+                SyncEntity(
+                    id = id,
+                    version = 0L,
+                    updatedAt = Instant.fromEpochMilliseconds(0L),
+                    deleted = false,
+                    syncState = SyncState.PendingUpload,
+                    payload = id.toByteArray(),
+                )
+            },
+            deserialize = { entity -> entity.payload.decodeToString() },
+        )
+
+        repo.upsert("item-1")
+        val read = repo.read("item-1")
+        assertEquals("item-1", read)
+
+        val all = repo.readAll()
+        assertEquals(1, all.size)
+        assertEquals("item-1", all[0])
+    }
+
+    @Test
+    fun repositoryDeleteMarksDeleted() = runTest {
+        val storage = FakeStorageAdapter()
+        val transport = FakeTransportAdapter()
+
+        val client = SyncClient.build(this) {
+            storage(storage)
+            transport(transport)
+        }
+
+        val repo = client.repository<String>(
+            serialize = { id ->
+                SyncEntity(
+                    id = id,
+                    version = 0L,
+                    updatedAt = Instant.fromEpochMilliseconds(0L),
+                    deleted = false,
+                    syncState = SyncState.PendingUpload,
+                    payload = id.toByteArray(),
+                )
+            },
+            deserialize = { entity -> entity.payload.decodeToString() },
+        )
+
+        repo.upsert("item-1")
+        repo.delete("item-1")
+        val read = repo.read("item-1")
+        assertEquals(null, read)
     }
 }
