@@ -21,13 +21,17 @@ class TodoViewModel(
     val items: StateFlow<List<TodoItem>> = todoRepository.observeAll()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    val syncProgress: StateFlow<SyncProgress> = MutableStateFlow(SyncProgress.Idle)
+    private val _syncProgress = MutableStateFlow<SyncProgress>(SyncProgress.Idle)
+    val syncProgress: StateFlow<SyncProgress> = _syncProgress
 
     val failedOperations: StateFlow<List<SyncEntity>> = syncClient.failedOperations
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     init {
         syncClient.start()
+        viewModelScope.launch {
+            syncClient.progress.collect { _syncProgress.value = it }
+        }
     }
 
     fun addTodo(title: String) {
