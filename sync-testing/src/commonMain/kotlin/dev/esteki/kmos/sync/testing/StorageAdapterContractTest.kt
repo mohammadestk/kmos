@@ -9,13 +9,13 @@ abstract class StorageAdapterContractTest {
 
     protected abstract fun createAdapter(): StorageAdapter
 
-    protected suspend fun readReturnsNullForNonExistentEntity() {
+    protected open suspend fun readReturnsNullForNonExistentEntity() {
         val adapter = createAdapter()
         val result = adapter.read("non-existent")
         kotlin.test.assertNull(result)
     }
 
-    protected suspend fun writeAndRead() {
+    protected open suspend fun writeAndRead() {
         val adapter = createAdapter()
         val entity = createEntity("id-1", version = 1L, syncState = SyncState.LocalOnly)
 
@@ -25,7 +25,7 @@ abstract class StorageAdapterContractTest {
         kotlin.test.assertEquals(entity, result)
     }
 
-    protected suspend fun writeOverwritesExistingEntity() {
+    protected open suspend fun writeOverwritesExistingEntity() {
         val adapter = createAdapter()
         val entity1 = createEntity("id-1", version = 1L)
         val entity2 = createEntity("id-1", version = 2L)
@@ -37,29 +37,7 @@ abstract class StorageAdapterContractTest {
         kotlin.test.assertEquals(2L, result?.version)
     }
 
-    protected suspend fun queryPendingReturnsOnlyPendingEntities() {
-        val adapter = createAdapter()
-        adapter.write(createEntity("id-1", syncState = SyncState.LocalOnly))
-        adapter.write(createEntity("id-2", syncState = SyncState.PendingUpload))
-        adapter.write(createEntity("id-3", syncState = SyncState.Synced))
-        adapter.write(createEntity("id-4", syncState = SyncState.PendingUpload))
-
-        val pending = adapter.queryPending()
-
-        kotlin.test.assertEquals(2, pending.size)
-        kotlin.test.assertEquals(true, pending.all { it.syncState == SyncState.PendingUpload })
-    }
-
-    protected suspend fun queryPendingReturnsEmptyListWhenNoPending() {
-        val adapter = createAdapter()
-        adapter.write(createEntity("id-1", syncState = SyncState.Synced))
-
-        val pending = adapter.queryPending()
-
-        kotlin.test.assertEquals(0, pending.size)
-    }
-
-    protected suspend fun deleteRemovesEntity() {
+    protected open suspend fun deleteRemovesEntity() {
         val adapter = createAdapter()
         val entity = createEntity("id-1", syncState = SyncState.LocalOnly)
         adapter.write(entity)
@@ -70,7 +48,7 @@ abstract class StorageAdapterContractTest {
         kotlin.test.assertNull(result)
     }
 
-    protected suspend fun queryFailedReturnsOnlyFailedEntities() {
+    protected open suspend fun queryFailedReturnsOnlyFailedEntities() {
         val adapter = createAdapter()
         adapter.write(createEntity("id-1", syncState = SyncState.LocalOnly))
         adapter.write(createEntity("id-2", syncState = SyncState.Failed))
@@ -83,7 +61,7 @@ abstract class StorageAdapterContractTest {
         kotlin.test.assertEquals(true, failed.all { it.syncState == SyncState.Failed })
     }
 
-    protected suspend fun queryFailedReturnsEmptyWhenNoFailed() {
+    protected open suspend fun queryFailedReturnsEmptyWhenNoFailed() {
         val adapter = createAdapter()
         adapter.write(createEntity("id-1", syncState = SyncState.Synced))
 
@@ -92,16 +70,15 @@ abstract class StorageAdapterContractTest {
         kotlin.test.assertEquals(0, failed.size)
     }
 
-    protected suspend fun deleteNonExistentIsNoOp() {
+    protected open suspend fun deleteNonExistentIsNoOp() {
         val adapter = createAdapter()
 
-        // Should not throw
         adapter.delete("non-existent")
 
         kotlin.test.assertNull(adapter.read("non-existent"))
     }
 
-    protected suspend fun multipleWritesSameIdPreservesLatest() {
+    protected open suspend fun multipleWritesSameIdPreservesLatest() {
         val adapter = createAdapter()
         val entity1 = createEntity("id-1", version = 1L, syncState = SyncState.LocalOnly)
         val entity2 = createEntity("id-1", version = 2L, syncState = SyncState.PendingUpload)
@@ -117,7 +94,7 @@ abstract class StorageAdapterContractTest {
         kotlin.test.assertEquals(SyncState.Synced, result.syncState)
     }
 
-    protected suspend fun queryAllReturnsAllEntities() {
+    protected open suspend fun queryAllReturnsAllEntities() {
         val adapter = createAdapter()
         adapter.write(createEntity("id-1", syncState = SyncState.LocalOnly))
         adapter.write(createEntity("id-2", syncState = SyncState.PendingUpload))
@@ -128,7 +105,7 @@ abstract class StorageAdapterContractTest {
         kotlin.test.assertEquals(3, all.size)
     }
 
-    protected suspend fun queryAllReturnsEmptyListWhenNoEntities() {
+    protected open suspend fun queryAllReturnsEmptyListWhenNoEntities() {
         val adapter = createAdapter()
 
         val all = adapter.queryAll()

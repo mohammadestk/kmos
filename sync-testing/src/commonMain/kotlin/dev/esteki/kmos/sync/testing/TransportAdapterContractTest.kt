@@ -11,7 +11,7 @@ abstract class TransportAdapterContractTest {
 
     protected abstract fun createAdapter(): TransportAdapter
 
-    protected suspend fun pushReturnsSuccess() {
+    protected open suspend fun pushReturnsSuccess() {
         val adapter = createAdapter()
         val op = createOperation("op-1")
 
@@ -20,7 +20,7 @@ abstract class TransportAdapterContractTest {
         assertTrue(result is PushResult.Success)
     }
 
-    protected suspend fun pushReturnsConflict() {
+    protected open suspend fun pushReturnsConflict() {
         val adapter = createAdapter()
         val op = createOperation("op-1")
 
@@ -30,7 +30,7 @@ abstract class TransportAdapterContractTest {
         assertTrue(result is PushResult.Success)
     }
 
-    protected suspend fun pullReturnsEntities() {
+    protected open suspend fun pullReturnsEntities() {
         val adapter = createAdapter()
 
         val result = adapter.pull(null)
@@ -39,7 +39,7 @@ abstract class TransportAdapterContractTest {
         assertEquals(0, result.entities.size)
     }
 
-    protected suspend fun pullReturnsNextCursor() {
+    protected open suspend fun pullReturnsNextCursor() {
         val adapter = createAdapter()
 
         val result = adapter.pull(null)
@@ -47,7 +47,7 @@ abstract class TransportAdapterContractTest {
         assertEquals(null, result.nextCursor)
     }
 
-    protected suspend fun pushWithCreateOperation() {
+    protected open suspend fun pushWithCreateOperation() {
         val adapter = createAdapter()
         val op = createOperation("op-create", type = OperationType.Create)
 
@@ -56,7 +56,7 @@ abstract class TransportAdapterContractTest {
         assertTrue(result is PushResult.Success || result is PushResult.Error)
     }
 
-    protected suspend fun pushWithUpdateOperation() {
+    protected open suspend fun pushWithUpdateOperation() {
         val adapter = createAdapter()
         val op = createOperation("op-update", type = OperationType.Update)
 
@@ -65,7 +65,7 @@ abstract class TransportAdapterContractTest {
         assertTrue(result is PushResult.Success || result is PushResult.Error)
     }
 
-    protected suspend fun pushWithDeleteOperation() {
+    protected open suspend fun pushWithDeleteOperation() {
         val adapter = createAdapter()
         val op = createOperation("op-delete", type = OperationType.Delete)
 
@@ -74,7 +74,7 @@ abstract class TransportAdapterContractTest {
         assertTrue(result is PushResult.Success || result is PushResult.Error)
     }
 
-    protected suspend fun pullWithCursorParameter() {
+    protected open suspend fun pullWithCursorParameter() {
         val adapter = createAdapter()
 
         val result = adapter.pull("test-cursor")
