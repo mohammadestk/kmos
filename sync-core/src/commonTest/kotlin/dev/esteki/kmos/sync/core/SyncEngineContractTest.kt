@@ -1,15 +1,12 @@
-package dev.esteki.kmos.sync.testing
+package dev.esteki.kmos.sync.core
 
-import dev.esteki.kmos.sync.core.ExponentialBackoffRetryPolicy
-import dev.esteki.kmos.sync.core.LastWriteWinsConflictResolver
-import dev.esteki.kmos.sync.core.InMemoryOperationQueue
-import dev.esteki.kmos.sync.core.SyncCommand
-import dev.esteki.kmos.sync.core.SyncEngine
 import dev.esteki.kmos.sync.core.model.OperationType
 import dev.esteki.kmos.sync.core.model.PushResult
 import dev.esteki.kmos.sync.core.model.SyncEntity
 import dev.esteki.kmos.sync.core.model.SyncOperation
 import dev.esteki.kmos.sync.core.model.SyncState
+import dev.esteki.kmos.sync.testing.FakeStorageAdapter
+import dev.esteki.kmos.sync.testing.FakeTransportAdapter
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.test.TestScope
@@ -20,7 +17,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 
 @OptIn(ExperimentalCoroutinesApi::class)
-abstract class SyncEngineContractTest {
+internal abstract class SyncEngineContractTest {
 
     protected abstract fun createStorage(): FakeStorageAdapter
     protected abstract fun createTransport(): FakeTransportAdapter

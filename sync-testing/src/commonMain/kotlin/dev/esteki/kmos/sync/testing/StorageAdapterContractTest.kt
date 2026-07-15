@@ -117,6 +117,25 @@ abstract class StorageAdapterContractTest {
         kotlin.test.assertEquals(SyncState.Synced, result.syncState)
     }
 
+    protected suspend fun queryAllReturnsAllEntities() {
+        val adapter = createAdapter()
+        adapter.write(createEntity("id-1", syncState = SyncState.LocalOnly))
+        adapter.write(createEntity("id-2", syncState = SyncState.PendingUpload))
+        adapter.write(createEntity("id-3", syncState = SyncState.Synced))
+
+        val all = adapter.queryAll()
+
+        kotlin.test.assertEquals(3, all.size)
+    }
+
+    protected suspend fun queryAllReturnsEmptyListWhenNoEntities() {
+        val adapter = createAdapter()
+
+        val all = adapter.queryAll()
+
+        kotlin.test.assertEquals(0, all.size)
+    }
+
     protected fun createEntity(
         id: String,
         version: Long = 1L,

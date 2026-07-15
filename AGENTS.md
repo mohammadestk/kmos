@@ -48,14 +48,15 @@ iOS tests require an Xcode-managed simulator. If `iosSimulatorArm64Test` fails w
 
 ```
 SDK Modules (core library):
-sync-core        interfaces, models, engine, operation queue, retry policy
+sync-core        interfaces, models, engine, operation queue, retry policy,
+                 SyncClient (public entry point), DefaultSyncTrigger, SyncMapper
 sync-storage     StorageAdapter + Room reference impl, DatabaseFactory expect/actuals
 sync-network     TransportAdapter + Ktor reference impl
-sync-trigger     lifecycle hooks, manual trigger, optional in-process interval
+sync-trigger     (thin module, DefaultSyncTrigger now lives in sync-core)
 sync-testing     fake adapters, contract test base classes, deterministic clocks
 
 Sample App:
-sample/         demo app module (App.kt, Platform.kt, SyncClientBuilder.kt, SyncModule.kt)
+sample/         demo app module (App.kt, SyncModule.kt)
 sample/androidApp/    Android app shell
 sample/desktopApp/    Desktop app shell
 sample/webApp/        Web app shell
@@ -77,6 +78,45 @@ sample/webApp      → sample
 ```
 
 Conflict resolution: LWW (default, uses `updatedAt`) or app-supplied `ConflictResolver<T>` callback.
+
+## Public API Surface
+
+What consumers interact with (everything else is `internal`):
+
+**sync-core:**
+- `SyncClient` — main entry point, use `SyncClient.build(scope) { ... }` builder
+- `SyncClient.Builder` — `storage()`, `transport()`, `retry()`, `conflictResolver()`, `trigger()`, `syncOnForeground()`, `syncInterval()`
+- `SyncRepository<T>` — typed CRUD: `read`, `readAll`, `upsert`, `delete`, `observeAll`
+- `SyncMapper<T>` — maps domain objects to/from `SyncEntity`
+- `StorageAdapter` — persistence contract
+- `TransportAdapter` — network contract
+- `ConflictResolver<T>` — conflict strategy
+- `RetryPolicy` — backoff/dead-letter decisions
+- `OperationQueue` — queue abstraction (advanced users)
+- `SyncTrigger` — lifecycle hook interface
+- `DefaultSyncTrigger` — built-in trigger implementation
+- `ExponentialBackoffRetryPolicy` — default retry policy
+- `LastWriteWinsConflictResolver` — default conflict resolver
+- Models: `SyncEntity`, `SyncOperation`, `SyncState`, `OperationType`, `PushResult`, `PullResult`, `SyncError`, `SyncProgress`
+
+**sync-storage:**
+- `RoomStorageAdapter` — Room-backed `StorageAdapter`
+- `RoomOperationQueue` — Room-backed `OperationQueue` (persistent)
+- `InMemoryStorageAdapter` — in-memory `StorageAdapter` (testing)
+- `createDatabase(name)` — platform-specific database factory
+
+**sync-network:**
+- `KtorTransportAdapter` — Ktor-backed `TransportAdapter`
+- `SyncEndpoints` — customizable URL routing
+
+**sync-testing:**
+- `FakeStorageAdapter`, `FakeTransportAdapter`, `MockTransportAdapter` — test doubles
+- `StorageAdapterContractTest`, `TransportAdapterContractTest` — contract test bases
+- `DeterministicClock` — test clock
+
+**Internal (not for consumer use):**
+- `SyncCommand`, `SyncEngine`, `InMemoryOperationQueue` — engine internals
+- `SyncEntityTable`, `SyncOperationTable`, `SyncEntityDao`, `SyncOperationDao` — Room internals
 
 ## Source Set Layout
 

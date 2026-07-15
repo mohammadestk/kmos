@@ -46,9 +46,10 @@ Kmos is a **Kotlin Multiplatform SDK** for building offline-first applications w
 | **Thread-Safe** | Single-writer Channel-driven architecture — no locks needed |
 | **Idempotent Retry** | Exponential backoff with jitter, dead-letter path |
 | **Conflict Resolution** | Last-Write-Wins default, custom resolver support |
+| **Typed Mapping** | `SyncMapper<T>` for clean domain ↔ entity conversion |
+| **Reactive** | `observeAll()` re-emits on every storage change |
 | **Pluggable** | Storage & transport adapters with contract test suites |
 | **Room 3** | KMP-native storage reference implementation |
-| **Koin DI** | Ready-to-use dependency injection module |
 
 ---
 
@@ -66,7 +67,6 @@ dependencies {
     implementation("com.github.mohammadestk.Kmos:sync-core:Tag")
     implementation("com.github.mohammadestk.Kmos:sync-storage:Tag")
     implementation("com.github.mohammadestk.Kmos:sync-network:Tag")
-    implementation("com.github.mohammadestk.Kmos:sync-trigger:Tag")
 }
 ```
 
@@ -75,29 +75,33 @@ Replace `Tag` with the desired version tag (e.g., `v0.1.0`).
 ### 2. Initialize SDK
 
 ```kotlin
-// With Koin (recommended)
-startKoin {
-    modules(syncModule(databaseName = "myapp.db"))
-}
-
-// Or manually
 val client = SyncClient.build(scope) {
     storage(RoomStorageAdapter(database))
-    transport(KtorTransportAdapter())
+    transport(KtorTransportAdapter(httpClient, baseUrl))
     retry(ExponentialBackoffRetryPolicy())
+    syncOnForeground(true)        // auto-sync on app foreground
+    syncInterval(5.minutes)       // optional periodic sync
 }
 ```
 
 ### 3. Use SyncRepository
 
 ```kotlin
-// Create a typed repository
+// Option A: Using SyncMapper (recommended)
+object TaskMapper : SyncMapper<Task> {
+    override fun toSyncEntity(value: Task) = value.toSyncEntity()
+    override fun fromSyncEntity(entity: SyncEntity) = entity.toTask()
+}
+
+val tasks: SyncRepository<Task> = client.repository(TaskMapper)
+
+// Option B: Using lambdas
 val tasks: SyncRepository<Task> = client.repository(
     serialize = { it.toSyncEntity() },
     deserialize = { it.toTask() },
 )
 
-// Observe all tasks
+// Observe all tasks (reactive — re-emits on storage changes)
 tasks.observeAll().collect { taskList ->
     // Update UI
 }
@@ -109,10 +113,15 @@ tasks.upsert(Task(id = "1", title = "Buy milk"))
 client.trigger()
 
 // Handle failed operations
-client.failedOperations().collect { failed ->
-    failed.forEach { operation ->
+client.failedOperations.collect { failed ->
+    failed.forEach { entity ->
         // Show retry button to user
     }
+}
+
+// Or with typed access:
+client.failedEntities(taskMapper).collect { failedTasks ->
+    // typed Task list
 }
 ```
 
@@ -125,13 +134,13 @@ client.failedOperations().collect { failed ->
 | Component | Purpose |
 |-----------|---------|
 | `SyncRepository<T>` | Typed CRUD interface, serializes domain models to SyncEntity |
+| `SyncMapper<T>` | Maps domain objects to/from `SyncEntity` |
 | `SyncClient` | Public entry point, builder DSL |
-| `SyncEngine` | Single-writer, Channel-driven command processor |
-| `OperationQueue` | Persisted queue with idempotency deduplication |
-| `RetryPolicy` | Exponential backoff with configurable dead-letter |
-| `ConflictResolver` | LWW or custom merge logic |
 | `StorageAdapter` | Local persistence interface |
 | `TransportAdapter` | Network transport interface |
+| `RetryPolicy` | Exponential backoff with configurable dead-letter |
+| `ConflictResolver` | LWW or custom merge logic |
+| `SyncTrigger` | Lifecycle hook for sync timing |
 
 ### Data Flow
 
@@ -142,21 +151,18 @@ User Action
 SyncRepository.upsert()
     │
     ▼
-SyncCommand.Enqueue ──► OperationQueue
-                              │
-                              ▼
-                    SyncCommand.TriggerSync
-                              │
-                              ▼
-                    TransportAdapter.push()
-                              │
-                    ┌─────────┴─────────┐
-                    ▼                   ▼
-               Success              Failure
-                    │                   │
-                    ▼                   ▼
-            StorageAdapter.write()  RetryPolicy
-            (state = Synced)     (backoff/retry)
+StorageAdapter.write() + OperationQueue.enqueue()
+    │
+    ▼
+TransportAdapter.push()
+    │
+    ┌─────────┴─────────┐
+    ▼                   ▼
+ Success              Failure
+    │                   │
+    ▼                   ▼
+StorageAdapter.write()  RetryPolicy
+(state = Synced)    (backoff/retry)
 ```
 
 ---
@@ -192,11 +198,22 @@ ConflictResolver<MyEntity> { local, remote ->
 ### SyncTrigger
 
 ```kotlin
-DefaultSyncTrigger(
-    scope = coroutineScope,
-    onTrigger = { client.trigger() },
-).apply {
-    startInterval(5.minutes)  // Optional periodic sync
+// Recommended: use builder methods (auto-creates DefaultSyncTrigger)
+val client = SyncClient.build(scope) {
+    storage(RoomStorageAdapter(database))
+    transport(KtorTransportAdapter(httpClient, baseUrl))
+    syncOnForeground(true)
+    syncInterval(5.minutes)
+}
+
+// Manual trigger
+client.trigger()
+
+// Or provide a custom trigger
+val client = SyncClient.build(scope) {
+    storage(RoomStorageAdapter(database))
+    transport(KtorTransportAdapter(httpClient, baseUrl))
+    trigger(myCustomTrigger)
 }
 ```
 
@@ -247,10 +264,10 @@ DefaultSyncTrigger(
 
 ```
 kmos/
-├── sync-core/                  # Core engine, interfaces, models
+├── sync-core/                  # Core engine, interfaces, models, SyncClient, DefaultSyncTrigger
 ├── sync-storage/               # Room 3 storage adapter
 ├── sync-network/               # Ktor transport adapter
-├── sync-trigger/               # Lifecycle hooks and trigger management
+├── sync-trigger/               # (empty — DefaultSyncTrigger now in sync-core)
 ├── sync-testing/               # Test utilities (not published)
 ├── sample/                     # Demo apps
 │   ├── shared/                 # Shared UI code

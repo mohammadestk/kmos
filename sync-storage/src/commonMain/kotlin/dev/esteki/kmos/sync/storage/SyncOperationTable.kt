@@ -4,7 +4,7 @@ import androidx.room3.Entity
 import androidx.room3.PrimaryKey
 
 @Entity(tableName = "sync_operations")
-data class SyncOperationTable(
+internal data class SyncOperationTable(
     @PrimaryKey val operationId: String,
     val entityId: String,
     val type: String,

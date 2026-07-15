@@ -1,11 +1,10 @@
-package dev.esteki.kmos.sync.network
+package dev.esteki.kmos.sync.testing
 
 import dev.esteki.kmos.sync.core.TransportAdapter
 import dev.esteki.kmos.sync.core.model.PullResult
 import dev.esteki.kmos.sync.core.model.PushResult
 import dev.esteki.kmos.sync.core.model.SyncOperation
 import kotlin.time.Duration
-import kotlin.time.TimeMark
 
 class MockTransportAdapter : TransportAdapter {
     var pushResult: PushResult = PushResult.Success(1L)

@@ -5,7 +5,6 @@ import dev.esteki.kmos.sync.core.model.SyncEntity
 import dev.esteki.kmos.sync.core.model.SyncOperation
 import dev.esteki.kmos.sync.core.model.SyncProgress
 import dev.esteki.kmos.sync.core.model.SyncState
-import dev.esteki.kmos.sync.trigger.SyncTrigger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -13,9 +12,12 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlin.time.Clock
+import kotlin.time.Duration
 import kotlin.uuid.Uuid
 
 class SyncClient private constructor(
@@ -24,11 +26,16 @@ class SyncClient private constructor(
     private val commandChannel: Channel<SyncCommand>,
     private val engine: SyncEngine,
     private val syncTrigger: SyncTrigger?,
+    private val syncInterval: Duration?,
 ) {
     private val _failedOperations = MutableStateFlow<List<SyncEntity>>(emptyList())
     val failedOperations: StateFlow<List<SyncEntity>> = _failedOperations.asStateFlow()
 
     val progress: SharedFlow<SyncProgress> = engine.progress
+
+    fun <T : Any> failedEntities(mapper: SyncMapper<T>): Flow<List<T>> {
+        return failedOperations.map { entities -> entities.map { mapper.fromSyncEntity(it) } }
+    }
 
     fun start() {
         engine.start()
@@ -36,6 +43,7 @@ class SyncClient private constructor(
             refreshFailedOperations()
         }
         syncTrigger?.onForeground()
+        syncInterval?.let { syncTrigger?.startInterval(it) }
     }
 
     fun trigger() {
@@ -87,21 +95,26 @@ class SyncClient private constructor(
         serialize: (T) -> SyncEntity,
         deserialize: (SyncEntity) -> T,
     ): SyncRepository<T> {
+        return repository(object : SyncMapper<T> {
+            override fun toSyncEntity(value: T): SyncEntity = serialize(value)
+            override fun fromSyncEntity(entity: SyncEntity): T = deserialize(entity)
+        })
+    }
+
+    fun <T : Any> repository(mapper: SyncMapper<T>): SyncRepository<T> {
         return object : SyncRepository<T> {
             override suspend fun read(id: String): T? {
                 val entity = storageAdapter.read(id) ?: return null
                 if (entity.deleted) return null
-                return deserialize(entity)
+                return mapper.fromSyncEntity(entity)
             }
 
             override suspend fun readAll(): List<T> {
-                val pending = storageAdapter.queryPending()
-                val failed = storageAdapter.queryFailed()
-                return (pending + failed).filter { !it.deleted }.map { deserialize(it) }
+                return storageAdapter.queryAll().filter { !it.deleted }.map { mapper.fromSyncEntity(it) }
             }
 
             override suspend fun upsert(value: T) {
-                val entity = serialize(value)
+                val entity = mapper.toSyncEntity(value)
                 val existing = storageAdapter.read(entity.id)
                 val now = Clock.System.now()
                 val writeEntity = if (existing != null) {
@@ -139,11 +152,11 @@ class SyncClient private constructor(
                 }
             }
 
-            override fun observeAll(): Flow<List<T>> = flow {
-                val pending = storageAdapter.queryPending()
-                val failed = storageAdapter.queryFailed()
-                emit((pending + failed).filter { !it.deleted }.map { deserialize(it) })
-            }
+            override fun observeAll(): Flow<List<T>> = storageAdapter.observeChanges()
+                .flatMapLatest {
+                    val entities = storageAdapter.queryAll()
+                    flow { emit(entities.filter { !it.deleted }.map { mapper.fromSyncEntity(it) }) }
+                }
         }
     }
 
@@ -157,12 +170,16 @@ class SyncClient private constructor(
         private var retryPolicy: RetryPolicy? = null
         private var conflictResolver: ConflictResolver<SyncEntity>? = null
         private var syncTrigger: SyncTrigger? = null
+        private var syncOnForeground: Boolean = false
+        private var syncInterval: Duration? = null
 
         fun storage(adapter: StorageAdapter) = apply { this.storageAdapter = adapter }
         fun transport(adapter: TransportAdapter) = apply { this.transportAdapter = adapter }
         fun retry(policy: RetryPolicy) = apply { this.retryPolicy = policy }
         fun conflictResolver(resolver: ConflictResolver<SyncEntity>) = apply { this.conflictResolver = resolver }
         fun trigger(trigger: SyncTrigger?) = apply { this.syncTrigger = trigger }
+        fun syncOnForeground(enabled: Boolean) = apply { this.syncOnForeground = enabled }
+        fun syncInterval(interval: Duration) = apply { this.syncInterval = interval }
 
         fun build(scope: CoroutineScope): SyncClient {
             val storage = requireNotNull(storageAdapter) { "StorageAdapter is required" }
@@ -171,6 +188,15 @@ class SyncClient private constructor(
             val resolver = conflictResolver ?: LastWriteWinsConflictResolver()
 
             val commandChannel = Channel<SyncCommand>(Channel.BUFFERED)
+
+            val trigger = syncTrigger ?: if (syncOnForeground || syncInterval != null) {
+                DefaultSyncTrigger(scope) {
+                    commandChannel.send(SyncCommand.TriggerSync)
+                }
+            } else {
+                null
+            }
+
             val queue = InMemoryOperationQueue(retry)
             val engine = SyncEngine(
                 scope = scope,
@@ -187,7 +213,8 @@ class SyncClient private constructor(
                 storageAdapter = storage,
                 commandChannel = commandChannel,
                 engine = engine,
-                syncTrigger = syncTrigger,
+                syncTrigger = trigger,
+                syncInterval = syncInterval,
             )
         }
     }

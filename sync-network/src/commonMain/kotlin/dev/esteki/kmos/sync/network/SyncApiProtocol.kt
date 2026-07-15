@@ -46,9 +46,4 @@ data class SyncEntityResponse(
     )
 }
 
-@Serializable
-data class ServerObject(
-    val id: String,
-    val name: String,
-    val data: String,
-)
+

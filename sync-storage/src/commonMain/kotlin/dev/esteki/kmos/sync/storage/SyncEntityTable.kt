@@ -4,7 +4,7 @@ import androidx.room3.Entity
 import androidx.room3.PrimaryKey
 
 @Entity(tableName = "sync_entities")
-data class SyncEntityTable(
+internal data class SyncEntityTable(
     @PrimaryKey val id: String,
     val version: Long,
     val updatedAt: Long,

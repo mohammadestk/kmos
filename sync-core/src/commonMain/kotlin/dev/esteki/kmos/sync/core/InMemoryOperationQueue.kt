@@ -5,7 +5,7 @@ import dev.esteki.kmos.sync.core.model.SyncOperation
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
-class InMemoryOperationQueue(
+internal class InMemoryOperationQueue(
     private val retryPolicy: RetryPolicy,
 ) : OperationQueue {
     private val mutex = Mutex()

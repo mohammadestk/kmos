@@ -7,10 +7,7 @@ import kotlin.uuid.Uuid
 
 class TodoRepository(syncClient: SyncClient) {
 
-    private val repository: SyncRepository<TodoItem> = syncClient.repository(
-        serialize = { it.toSyncEntity() },
-        deserialize = { it.toTodoItem() },
-    )
+    private val repository: SyncRepository<TodoItem> = syncClient.repository(TodoItemMapper)
 
     fun observeAll(): Flow<List<TodoItem>> = repository.observeAll()
 

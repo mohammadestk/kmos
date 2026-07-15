@@ -1,6 +1,5 @@
 package dev.esteki.kmos.sample.sync
 
-import dev.esteki.kmos.sample.sync.syncClient
 import dev.esteki.kmos.sync.core.ExponentialBackoffRetryPolicy
 import dev.esteki.kmos.sync.core.SyncClient
 import dev.esteki.kmos.sync.core.model.SyncEntity
@@ -8,7 +7,6 @@ import dev.esteki.kmos.sync.core.model.SyncState
 import dev.esteki.kmos.sync.testing.FakeStorageAdapter
 import dev.esteki.kmos.sync.testing.FakeTransportAdapter
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -40,19 +38,6 @@ class SyncClientTest {
             storage(storage)
             transport(transport)
             retry(retry)
-        }
-
-        assertNotNull(client)
-    }
-
-    @Test
-    fun syncClientBuilderFunction() = runTest {
-        val storage = FakeStorageAdapter()
-        val transport = FakeTransportAdapter()
-
-        val client = syncClient(this) {
-            storage(storage)
-            transport(transport)
         }
 
         assertNotNull(client)
@@ -123,7 +108,6 @@ class SyncClientTest {
         storage.write(entity)
 
         client.retry(entity)
-        // Wait for retry to be processed
         delay(100)
         client.stop()
     }
@@ -151,7 +135,6 @@ class SyncClientTest {
         storage.write(entity)
 
         client.discard(entity)
-        // Wait for discard to be processed
         delay(100)
         client.stop()
     }

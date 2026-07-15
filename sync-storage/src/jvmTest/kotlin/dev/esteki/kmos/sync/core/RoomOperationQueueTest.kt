@@ -3,6 +3,7 @@ package dev.esteki.kmos.sync.core
 import dev.esteki.kmos.sync.core.model.OperationType
 import dev.esteki.kmos.sync.core.model.SyncError
 import dev.esteki.kmos.sync.core.model.SyncOperation
+import dev.esteki.kmos.sync.storage.RoomOperationQueue
 import dev.esteki.kmos.sync.storage.createInMemoryDatabase
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Ignore

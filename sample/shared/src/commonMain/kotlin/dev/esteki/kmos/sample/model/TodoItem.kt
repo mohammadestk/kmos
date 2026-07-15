@@ -1,5 +1,6 @@
 package dev.esteki.kmos.sample.model
 
+import dev.esteki.kmos.sync.core.SyncMapper
 import dev.esteki.kmos.sync.core.model.SyncEntity
 import dev.esteki.kmos.sync.core.model.SyncState
 import io.ktor.utils.io.core.toByteArray
@@ -17,17 +18,19 @@ data class TodoItem(
 
 private val json = Json { ignoreUnknownKeys = true }
 
-fun TodoItem.toSyncEntity(): SyncEntity {
-    return SyncEntity(
-        id = id,
-        version = 0L,
-        updatedAt = Instant.fromEpochMilliseconds(createdAt),
-        deleted = false,
-        syncState = SyncState.PendingUpload,
-        payload = json.encodeToString(this).toByteArray(),
-    )
-}
+object TodoItemMapper : SyncMapper<TodoItem> {
+    override fun toSyncEntity(value: TodoItem): SyncEntity {
+        return SyncEntity(
+            id = value.id,
+            version = 0L,
+            updatedAt = Instant.fromEpochMilliseconds(value.createdAt),
+            deleted = false,
+            syncState = SyncState.PendingUpload,
+            payload = json.encodeToString(value).toByteArray(),
+        )
+    }
 
-fun SyncEntity.toTodoItem(): TodoItem {
-    return json.decodeFromString<TodoItem>(payload.decodeToString())
+    override fun fromSyncEntity(entity: SyncEntity): TodoItem {
+        return json.decodeFromString<TodoItem>(entity.payload.decodeToString())
+    }
 }

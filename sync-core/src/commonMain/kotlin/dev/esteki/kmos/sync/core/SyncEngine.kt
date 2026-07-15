@@ -16,7 +16,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
 
-class SyncEngine(
+internal class SyncEngine(
     private val scope: CoroutineScope,
     private val commandChannel: Channel<SyncCommand>,
     private val operationQueue: OperationQueue,

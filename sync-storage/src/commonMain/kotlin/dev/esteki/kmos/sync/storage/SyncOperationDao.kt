@@ -6,7 +6,7 @@ import androidx.room3.OnConflictStrategy
 import androidx.room3.Query
 
 @Dao
-interface SyncOperationDao {
+internal interface SyncOperationDao {
     @Query("SELECT * FROM sync_operations")
     suspend fun getAll(): List<SyncOperationTable>
 

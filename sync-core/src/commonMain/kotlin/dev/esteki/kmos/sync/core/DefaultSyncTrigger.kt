@@ -1,4 +1,4 @@
-package dev.esteki.kmos.sync.trigger
+package dev.esteki.kmos.sync.core
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job

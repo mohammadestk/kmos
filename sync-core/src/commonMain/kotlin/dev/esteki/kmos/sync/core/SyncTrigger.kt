@@ -1,4 +1,4 @@
-package dev.esteki.kmos.sync.trigger
+package dev.esteki.kmos.sync.core
 
 import kotlin.time.Duration
 

@@ -30,9 +30,7 @@ val appModule = module {
     single<TransportAdapter> { KtorTransportAdapter(httpClient, baseUrl) }
     single<RetryPolicy> { ExponentialBackoffRetryPolicy() }
     single<ConflictResolver<SyncEntity>> { LastWriteWinsConflictResolver() }
-    single<SyncClient> { params ->
-
-        // TODO ("should be define as expected actual")
+    single<SyncClient> {
         val dispatcher = CoroutineScope(Dispatchers.Default)
 
         SyncClient.build(dispatcher) {

@@ -3,6 +3,8 @@ package dev.esteki.kmos.sync.storage
 import dev.esteki.kmos.sync.core.StorageAdapter
 import dev.esteki.kmos.sync.core.model.SyncEntity
 import dev.esteki.kmos.sync.core.model.SyncState
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import kotlin.time.Instant
 
 class RoomStorageAdapter(
@@ -24,12 +26,20 @@ class RoomStorageAdapter(
         dao.deleteById(id)
     }
 
+    override suspend fun queryAll(): List<SyncEntity> {
+        return dao.queryAll().map { it.toDomain() }
+    }
+
     override suspend fun queryPending(): List<SyncEntity> {
         return dao.queryPending().map { it.toDomain() }
     }
 
     override suspend fun queryFailed(): List<SyncEntity> {
         return dao.queryFailed().map { it.toDomain() }
+    }
+
+    override fun observeChanges(): Flow<Unit> {
+        return dao.observeChangeCount().map { }
     }
 
     private fun SyncEntityTable.toDomain() = SyncEntity(

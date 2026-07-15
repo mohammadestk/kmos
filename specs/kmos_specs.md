@@ -142,7 +142,11 @@ interface SyncRepository<T> {
 interface StorageAdapter {
     suspend fun read(id: String): SyncEntity?
     suspend fun write(entity: SyncEntity)
+    suspend fun delete(id: String)
+    suspend fun queryAll(): List<SyncEntity>
     suspend fun queryPending(): List<SyncEntity>
+    suspend fun queryFailed(): List<SyncEntity>
+    fun observeChanges(): Flow<Unit>
 }
 
 interface TransportAdapter {
@@ -157,6 +161,11 @@ interface ConflictResolver<T> {
 interface RetryPolicy {
     fun nextDelay(attempt: Int): Duration
     fun shouldDeadLetter(attempt: Int, lastError: SyncError): Boolean
+}
+
+interface SyncMapper<T> {
+    fun toSyncEntity(value: T): SyncEntity
+    fun fromSyncEntity(entity: SyncEntity): T
 }
 ```
 
@@ -256,26 +265,41 @@ supports. Do not claim "Merge" as a v1 feature.*
 ## Public API Example
 
 ```kotlin
-val client = SyncClient {
-    storage(RoomAdapter())
-    transport(KtorAdapter())
-    conflictResolver(LastWriteWins)
+val client = SyncClient.build(scope) {
+    storage(RoomStorageAdapter(database))
+    transport(KtorTransportAdapter(httpClient, baseUrl))
+    conflictResolver(LastWriteWinsConflictResolver())
     syncOnForeground(true)        // commonMain lifecycle hook
     syncInterval(5.minutes)       // optional, only while process is alive
 }
 
+// Option A: Using SyncMapper (recommended)
+object TaskMapper : SyncMapper<Task> {
+    override fun toSyncEntity(value: Task) = value.toSyncEntity()
+    override fun fromSyncEntity(entity: SyncEntity) = entity.toTask()
+}
+
+val tasks: SyncRepository<Task> = client.repository(TaskMapper)
+
+// Option B: Using lambdas
 val tasks: SyncRepository<Task> = client.repository(
     serialize = { it.toSyncEntity() },
     deserialize = { it.toTask() },
 )
 
 tasks.upsert(updatedTask)  // writes to StorageAdapter + enqueues sync
-tasks.readAll()            // reads from StorageAdapter
+tasks.readAll()            // reads all non-deleted entities from StorageAdapter
+tasks.observeAll()         // reactive Flow, re-emits on storage changes
 
 client.trigger()  // manual sync, e.g. pull-to-refresh
 
-client.failedOperations().collect { failed ->
-    // surface to user, offer retry
+client.failedOperations.collect { failed ->
+    // raw SyncEntity list — surface to user, offer retry
+}
+
+// Or with typed mapper:
+client.failedEntities(taskMapper).collect { failedTasks ->
+    // typed Task list
 }
 ```
 
