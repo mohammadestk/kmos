@@ -9,7 +9,12 @@ data class SyncEntity(
     val deleted: Boolean,
     val syncState: SyncState,
     val payload: ByteArray,
+    val pendingOperationType: OperationType? = null,
+    val operationId: String? = null,
+    val operationAttempt: Int = 0,
 ) {
+    val hasPendingOperation: Boolean get() = pendingOperationType != null
+
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (other !is SyncEntity) return false
@@ -18,7 +23,10 @@ data class SyncEntity(
             updatedAt == other.updatedAt &&
             deleted == other.deleted &&
             syncState == other.syncState &&
-            payload.contentEquals(other.payload)
+            payload.contentEquals(other.payload) &&
+            pendingOperationType == other.pendingOperationType &&
+            operationId == other.operationId &&
+            operationAttempt == other.operationAttempt
     }
 
     override fun hashCode(): Int {
@@ -28,6 +36,9 @@ data class SyncEntity(
         result = 31 * result + deleted.hashCode()
         result = 31 * result + syncState.hashCode()
         result = 31 * result + payload.contentHashCode()
+        result = 31 * result + (pendingOperationType?.hashCode() ?: 0)
+        result = 31 * result + (operationId?.hashCode() ?: 0)
+        result = 31 * result + operationAttempt
         return result
     }
 }

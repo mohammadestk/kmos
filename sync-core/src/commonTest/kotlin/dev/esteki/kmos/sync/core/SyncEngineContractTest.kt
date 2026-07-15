@@ -3,7 +3,6 @@ package dev.esteki.kmos.sync.core
 import dev.esteki.kmos.sync.core.model.OperationType
 import dev.esteki.kmos.sync.core.model.PushResult
 import dev.esteki.kmos.sync.core.model.SyncEntity
-import dev.esteki.kmos.sync.core.model.SyncOperation
 import dev.esteki.kmos.sync.core.model.SyncState
 import dev.esteki.kmos.sync.testing.FakeStorageAdapter
 import dev.esteki.kmos.sync.testing.FakeTransportAdapter
@@ -36,7 +35,6 @@ internal abstract class SyncEngineContractTest {
         ctx.engine.start()
 
         storage.addEntity(createEntity("entity-1", syncState = SyncState.PendingUpload))
-        ctx.commandChannel.send(SyncCommand.Enqueue(createOperation("op-1", "entity-1")))
         ctx.commandChannel.send(SyncCommand.TriggerSync)
 
         advanceUntilIdle()
@@ -45,6 +43,7 @@ internal abstract class SyncEngineContractTest {
         assertNotNull(written)
         assertEquals(SyncState.Synced, written.syncState)
         assertEquals(1L, written.version)
+        assertEquals(null, written.pendingOperationType)
 
         ctx.engine.stop()
     }
@@ -59,7 +58,6 @@ internal abstract class SyncEngineContractTest {
         ctx.engine.start()
 
         storage.addEntity(createEntity("entity-1", version = 1L, syncState = SyncState.PendingUpload))
-        ctx.commandChannel.send(SyncCommand.Enqueue(createOperation("op-1", "entity-1")))
         ctx.commandChannel.send(SyncCommand.TriggerSync)
 
         advanceUntilIdle()
@@ -68,6 +66,7 @@ internal abstract class SyncEngineContractTest {
         assertNotNull(written)
         assertEquals(SyncState.Synced, written.syncState)
         assertEquals(2L, written.version)
+        assertEquals(null, written.pendingOperationType)
 
         ctx.engine.stop()
     }
@@ -80,8 +79,7 @@ internal abstract class SyncEngineContractTest {
         val ctx = createEngineWithContext(this, storage, transport)
         ctx.engine.start()
 
-        storage.addEntity(createEntity("entity-1", syncState = SyncState.PendingUpload))
-        ctx.commandChannel.send(SyncCommand.Enqueue(createOperation("op-1", "entity-1").copy(attempt = 2)))
+        storage.addEntity(createEntity("entity-1", syncState = SyncState.PendingUpload, operationAttempt = 2))
         ctx.commandChannel.send(SyncCommand.TriggerSync)
 
         advanceUntilIdle()
@@ -89,6 +87,7 @@ internal abstract class SyncEngineContractTest {
         val written = storage.getEntity("entity-1")
         assertNotNull(written)
         assertEquals(SyncState.Failed, written.syncState)
+        assertEquals(null, written.pendingOperationType)
 
         ctx.engine.stop()
     }
@@ -102,14 +101,14 @@ internal abstract class SyncEngineContractTest {
         ctx.engine.start()
 
         storage.addEntity(createEntity("entity-1", syncState = SyncState.PendingUpload))
-        ctx.commandChannel.send(SyncCommand.Enqueue(createOperation("op-1", "entity-1")))
         ctx.commandChannel.send(SyncCommand.TriggerSync)
 
         advanceUntilIdle()
 
         val written = storage.getEntity("entity-1")
         assertNotNull(written)
-        assertEquals(SyncState.PendingUpload, written.syncState)
+        assertEquals(1, written.operationAttempt)
+        assertEquals(OperationType.Update, written.pendingOperationType)
 
         ctx.engine.stop()
     }
@@ -150,10 +149,6 @@ internal abstract class SyncEngineContractTest {
 
         advanceUntilIdle()
 
-        ctx.commandChannel.send(SyncCommand.Enqueue(createOperation("op-2", "entity-2")))
-
-        advanceUntilIdle()
-
         ctx.engine.stop()
     }
 
@@ -164,12 +159,10 @@ internal abstract class SyncEngineContractTest {
     ): EngineWithContext {
         val retryPolicy = ExponentialBackoffRetryPolicy(maxAttempts = 3)
         val commandChannel = Channel<SyncCommand>(Channel.BUFFERED)
-        val queue = InMemoryOperationQueue(retryPolicy)
 
         val engine = SyncEngine(
             scope = scope,
             commandChannel = commandChannel,
-            operationQueue = queue,
             storageAdapter = storage,
             transportAdapter = transport,
             retryPolicy = retryPolicy,
@@ -183,6 +176,7 @@ internal abstract class SyncEngineContractTest {
         id: String,
         version: Long = 1L,
         syncState: SyncState = SyncState.LocalOnly,
+        operationAttempt: Int = 0,
     ) = SyncEntity(
         id = id,
         version = version,
@@ -190,16 +184,8 @@ internal abstract class SyncEngineContractTest {
         deleted = false,
         syncState = syncState,
         payload = byteArrayOf(),
-    )
-
-    protected fun createOperation(
-        operationId: String,
-        entityId: String,
-    ) = SyncOperation(
-        operationId = operationId,
-        entityId = entityId,
-        type = OperationType.Update,
-        attempt = 0,
-        payload = byteArrayOf(),
+        pendingOperationType = if (syncState == SyncState.PendingUpload) OperationType.Update else null,
+        operationId = if (syncState == SyncState.PendingUpload) "op-$id" else null,
+        operationAttempt = operationAttempt,
     )
 }

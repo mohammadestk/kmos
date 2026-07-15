@@ -1,6 +1,5 @@
-package dev.esteki.kmos.sync.trigger
+package dev.esteki.kmos.sync.core
 
-import dev.esteki.kmos.sync.core.DefaultSyncTrigger
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope

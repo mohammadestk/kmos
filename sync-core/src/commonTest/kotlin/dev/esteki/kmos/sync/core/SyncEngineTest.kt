@@ -34,12 +34,10 @@ class SyncEngineTest {
 
         val commandChannel = Channel<SyncCommand>(Channel.BUFFERED)
         val retryPolicy = ExponentialBackoffRetryPolicy(maxAttempts = 3)
-        val queue = InMemoryOperationQueue(retryPolicy)
 
         val engine = SyncEngine(
             scope = testScope,
             commandChannel = commandChannel,
-            operationQueue = queue,
             storageAdapter = storage,
             transportAdapter = transport,
             retryPolicy = retryPolicy,
@@ -54,18 +52,12 @@ class SyncEngineTest {
             deleted = false,
             syncState = SyncState.PendingUpload,
             payload = byteArrayOf(1),
+            pendingOperationType = OperationType.Update,
+            operationId = "op-1",
+            operationAttempt = 0,
         )
         storage.entities["entity-1"] = entity
 
-        val op = SyncOperation(
-            operationId = "op-1",
-            entityId = "entity-1",
-            type = OperationType.Update,
-            attempt = 0,
-            payload = byteArrayOf(1),
-        )
-
-        commandChannel.send(SyncCommand.Enqueue(op))
         commandChannel.send(SyncCommand.TriggerSync)
 
         testScope.testScheduler.advanceUntilIdle()
@@ -74,6 +66,7 @@ class SyncEngineTest {
         assertNotNull(written)
         assertEquals(SyncState.Synced, written.syncState)
         assertEquals(1L, written.version)
+        assertEquals(null, written.pendingOperationType)
 
         engine.stop()
     }
@@ -94,12 +87,10 @@ class SyncEngineTest {
 
         val commandChannel = Channel<SyncCommand>(Channel.BUFFERED)
         val retryPolicy = ExponentialBackoffRetryPolicy(maxAttempts = 3)
-        val queue = InMemoryOperationQueue(retryPolicy)
 
         val engine = SyncEngine(
             scope = testScope,
             commandChannel = commandChannel,
-            operationQueue = queue,
             storageAdapter = storage,
             transportAdapter = transport,
             retryPolicy = retryPolicy,
@@ -114,18 +105,12 @@ class SyncEngineTest {
             deleted = false,
             syncState = SyncState.PendingUpload,
             payload = byteArrayOf(1),
+            pendingOperationType = OperationType.Update,
+            operationId = "op-1",
+            operationAttempt = 0,
         )
         storage.entities["entity-1"] = entity
 
-        val op = SyncOperation(
-            operationId = "op-1",
-            entityId = "entity-1",
-            type = OperationType.Update,
-            attempt = 0,
-            payload = byteArrayOf(1),
-        )
-
-        commandChannel.send(SyncCommand.Enqueue(op))
         commandChannel.send(SyncCommand.TriggerSync)
 
         testScope.testScheduler.advanceUntilIdle()
@@ -133,24 +118,23 @@ class SyncEngineTest {
         val written = storage.entities["entity-1"]
         assertNotNull(written)
         assertEquals(SyncState.Synced, written.syncState)
+        assertEquals(null, written.pendingOperationType)
 
         engine.stop()
     }
 
     @Test
-    fun transientFailureTriggersRetry() = runTest {
+    fun transientFailureIncrementsAttempt() = runTest {
         val storage = FakeStorage()
         val transport = FakeTransport()
         transport.pushResult = PushResult.Error(SyncError.NetworkTimeout)
 
         val commandChannel = Channel<SyncCommand>(Channel.BUFFERED)
         val retryPolicy = ExponentialBackoffRetryPolicy(maxAttempts = 3)
-        val queue = InMemoryOperationQueue(retryPolicy)
 
         val engine = SyncEngine(
             scope = testScope,
             commandChannel = commandChannel,
-            operationQueue = queue,
             storageAdapter = storage,
             transportAdapter = transport,
             retryPolicy = retryPolicy,
@@ -165,25 +149,20 @@ class SyncEngineTest {
             deleted = false,
             syncState = SyncState.PendingUpload,
             payload = byteArrayOf(1),
+            pendingOperationType = OperationType.Update,
+            operationId = "op-1",
+            operationAttempt = 0,
         )
         storage.entities["entity-1"] = entity
 
-        val op = SyncOperation(
-            operationId = "op-1",
-            entityId = "entity-1",
-            type = OperationType.Update,
-            attempt = 0,
-            payload = byteArrayOf(1),
-        )
-
-        commandChannel.send(SyncCommand.Enqueue(op))
         commandChannel.send(SyncCommand.TriggerSync)
 
-        testScope.testScheduler.advanceUntilIdle()
+        testScope.testScheduler.runCurrent()
 
-        val pending = queue.dequeuePending()
-        assertTrue(pending.isNotEmpty())
-        assertEquals(1, pending[0].attempt)
+        val written = storage.entities["entity-1"]
+        assertNotNull(written)
+        assertEquals(1, written.operationAttempt)
+        assertEquals(OperationType.Update, written.pendingOperationType)
 
         engine.stop()
     }
@@ -207,12 +186,10 @@ class SyncEngineTest {
 
         val commandChannel = Channel<SyncCommand>(Channel.BUFFERED)
         val retryPolicy = ExponentialBackoffRetryPolicy(maxAttempts = 3)
-        val queue = InMemoryOperationQueue(retryPolicy)
 
         val engine = SyncEngine(
             scope = testScope,
             commandChannel = commandChannel,
-            operationQueue = queue,
             storageAdapter = storage,
             transportAdapter = transport,
             retryPolicy = retryPolicy,
@@ -245,12 +222,10 @@ class SyncEngineTest {
             entities.remove(id)
             _changes.tryEmit(Unit)
         }
-        override suspend fun queryPending(): List<SyncEntity> =
-            entities.values.filter { it.syncState == SyncState.PendingUpload }
-        override suspend fun queryFailed(): List<SyncEntity> =
-            entities.values.filter { it.syncState == SyncState.Failed }
         override suspend fun queryAll(): List<SyncEntity> =
             entities.values.toList()
+        override suspend fun queryFailed(): List<SyncEntity> =
+            entities.values.filter { it.syncState == SyncState.Failed }
         override fun observeChanges(): Flow<Unit> = _changes
     }
 

@@ -8,7 +8,7 @@ import kotlin.io.encoding.ExperimentalEncodingApi
 import kotlin.time.Clock
 
 @Serializable
-data class SyncPushRequest(
+internal data class SyncPushRequest(
     val entityId: String,
     val operationType: String,
     val operationId: String,
@@ -16,19 +16,19 @@ data class SyncPushRequest(
 )
 
 @Serializable
-data class SyncPushResponse(
+internal data class SyncPushResponse(
     val version: Long,
     val entityId: String,
 )
 
 @Serializable
-data class SyncPullResponse(
+internal data class SyncPullResponse(
     val entities: List<SyncEntityResponse>,
     val nextCursor: String? = null,
 )
 
 @Serializable
-data class SyncEntityResponse(
+internal data class SyncEntityResponse(
     val id: String,
     val version: Long,
     val updatedAt: Long,

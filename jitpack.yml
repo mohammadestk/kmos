@@ -2,4 +2,4 @@ jdk:
   - openjdk21
 
 install:
-  - ./gradlew :sync-core:publish :sync-storage:publish :sync-network:publish :sync-trigger:publish
+  - ./gradlew :sync-core:publish :sync-storage:publish :sync-network:publish

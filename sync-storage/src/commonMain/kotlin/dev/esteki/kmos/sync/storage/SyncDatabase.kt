@@ -5,11 +5,10 @@ import androidx.room3.Database
 import androidx.room3.RoomDatabase
 import androidx.room3.RoomDatabaseConstructor
 
-@Database(entities = [SyncEntityTable::class, SyncOperationTable::class], version = 2)
+@Database(entities = [SyncEntityTable::class], version = 3)
 @ConstructedBy(SyncDatabaseConstructor::class)
 abstract class SyncDatabase : RoomDatabase() {
     internal abstract fun syncEntityDao(): SyncEntityDao
-    internal abstract fun syncOperationDao(): SyncOperationDao
 }
 
 expect object SyncDatabaseConstructor : RoomDatabaseConstructor<SyncDatabase> {

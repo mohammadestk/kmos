@@ -34,7 +34,6 @@ plugins {
 
 // SDK Modules
 include(":sync-core")
-include(":sync-trigger")
 include(":sync-testing")
 include(":sync-storage")
 include(":sync-network")

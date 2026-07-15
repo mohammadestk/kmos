@@ -35,10 +35,6 @@ class InMemoryStorageAdapter : StorageAdapter {
         entities.values.toList()
     }
 
-    override suspend fun queryPending(): List<SyncEntity> = mutex.withLock {
-        entities.values.filter { it.syncState == SyncState.PendingUpload }
-    }
-
     override suspend fun queryFailed(): List<SyncEntity> = mutex.withLock {
         entities.values.filter { it.syncState == SyncState.Failed }
     }

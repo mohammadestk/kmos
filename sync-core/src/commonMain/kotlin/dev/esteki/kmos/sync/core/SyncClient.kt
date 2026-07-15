@@ -2,10 +2,10 @@ package dev.esteki.kmos.sync.core
 
 import dev.esteki.kmos.sync.core.model.OperationType
 import dev.esteki.kmos.sync.core.model.SyncEntity
-import dev.esteki.kmos.sync.core.model.SyncOperation
 import dev.esteki.kmos.sync.core.model.SyncProgress
 import dev.esteki.kmos.sync.core.model.SyncState
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -64,29 +64,27 @@ class SyncClient private constructor(
         }
     }
 
-    fun enqueue(operation: SyncOperation) {
-        scope.launch {
-            commandChannel.send(SyncCommand.Enqueue(operation))
-        }
-    }
-
     fun retry(entity: SyncEntity) {
-        val operation = SyncOperation(
-            operationId = Uuid.random().toString(),
-            entityId = entity.id,
-            type = OperationType.Update,
-            attempt = 0,
-            payload = entity.payload,
-        )
         scope.launch {
-            commandChannel.send(SyncCommand.Enqueue(operation))
+            storageAdapter.write(entity.copy(
+                syncState = SyncState.PendingUpload,
+                pendingOperationType = OperationType.Update,
+                operationId = Uuid.random().toString(),
+                operationAttempt = 0,
+            ))
+            commandChannel.send(SyncCommand.TriggerSync)
             refreshFailedOperations()
         }
     }
 
     fun discard(entity: SyncEntity) {
         scope.launch {
-            storageAdapter.write(entity.copy(syncState = SyncState.LocalOnly))
+            storageAdapter.write(entity.copy(
+                syncState = SyncState.LocalOnly,
+                pendingOperationType = null,
+                operationId = null,
+                operationAttempt = 0,
+            ))
             refreshFailedOperations()
         }
     }
@@ -101,6 +99,7 @@ class SyncClient private constructor(
         })
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     fun <T : Any> repository(mapper: SyncMapper<T>): SyncRepository<T> {
         return object : SyncRepository<T> {
             override suspend fun read(id: String): T? {
@@ -117,38 +116,40 @@ class SyncClient private constructor(
                 val entity = mapper.toSyncEntity(value)
                 val existing = storageAdapter.read(entity.id)
                 val now = Clock.System.now()
+                val type = if (existing == null) OperationType.Create else OperationType.Update
                 val writeEntity = if (existing != null) {
                     entity.copy(
                         version = existing.version,
                         updatedAt = now,
+                        syncState = SyncState.PendingUpload,
+                        pendingOperationType = type,
+                        operationId = Uuid.random().toString(),
+                        operationAttempt = 0,
                     )
                 } else {
-                    entity.copy(updatedAt = now)
+                    entity.copy(
+                        updatedAt = now,
+                        syncState = SyncState.PendingUpload,
+                        pendingOperationType = type,
+                        operationId = Uuid.random().toString(),
+                        operationAttempt = 0,
+                    )
                 }
                 storageAdapter.write(writeEntity)
-                val type = if (existing == null) OperationType.Create else OperationType.Update
-                val operation = SyncOperation(
-                    operationId = Uuid.random().toString(),
-                    entityId = writeEntity.id,
-                    type = type,
-                    attempt = 0,
-                    payload = writeEntity.payload,
-                )
-                enqueue(operation)
+                commandChannel.send(SyncCommand.TriggerSync)
             }
 
             override suspend fun delete(id: String) {
                 val existing = storageAdapter.read(id)
                 if (existing != null) {
-                    storageAdapter.write(existing.copy(deleted = true, syncState = SyncState.PendingUpload))
-                    val operation = SyncOperation(
+                    storageAdapter.write(existing.copy(
+                        deleted = true,
+                        syncState = SyncState.PendingUpload,
+                        pendingOperationType = OperationType.Delete,
                         operationId = Uuid.random().toString(),
-                        entityId = id,
-                        type = OperationType.Delete,
-                        attempt = 0,
-                        payload = existing.payload,
-                    )
-                    enqueue(operation)
+                        operationAttempt = 0,
+                    ))
+                    commandChannel.send(SyncCommand.TriggerSync)
                 }
             }
 
@@ -197,11 +198,9 @@ class SyncClient private constructor(
                 null
             }
 
-            val queue = InMemoryOperationQueue(retry)
             val engine = SyncEngine(
                 scope = scope,
                 commandChannel = commandChannel,
-                operationQueue = queue,
                 storageAdapter = storage,
                 transportAdapter = transport,
                 retryPolicy = retry,

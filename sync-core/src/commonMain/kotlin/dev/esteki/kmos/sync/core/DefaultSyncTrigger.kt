@@ -6,7 +6,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.time.Duration
 
-class DefaultSyncTrigger(
+internal class DefaultSyncTrigger(
     private val scope: CoroutineScope,
     private val onTrigger: suspend () -> Unit,
 ) : SyncTrigger {

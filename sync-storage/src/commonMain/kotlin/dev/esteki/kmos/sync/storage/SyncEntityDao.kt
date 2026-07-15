@@ -17,9 +17,6 @@ internal interface SyncEntityDao {
     @Query("SELECT * FROM sync_entities")
     suspend fun queryAll(): List<SyncEntityTable>
 
-    @Query("SELECT * FROM sync_entities WHERE syncState = 'PendingUpload'")
-    suspend fun queryPending(): List<SyncEntityTable>
-
     @Query("SELECT * FROM sync_entities WHERE syncState = 'Failed'")
     suspend fun queryFailed(): List<SyncEntityTable>
 

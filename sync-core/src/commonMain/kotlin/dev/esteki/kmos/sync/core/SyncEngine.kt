@@ -1,5 +1,6 @@
 package dev.esteki.kmos.sync.core
 
+import dev.esteki.kmos.sync.core.model.OperationType
 import dev.esteki.kmos.sync.core.model.PushResult
 import dev.esteki.kmos.sync.core.model.SyncEntity
 import dev.esteki.kmos.sync.core.model.SyncError
@@ -15,11 +16,11 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
+import kotlin.uuid.Uuid
 
 internal class SyncEngine(
     private val scope: CoroutineScope,
     private val commandChannel: Channel<SyncCommand>,
-    private val operationQueue: OperationQueue,
     private val storageAdapter: StorageAdapter,
     private val transportAdapter: TransportAdapter,
     private val retryPolicy: RetryPolicy,
@@ -35,31 +36,23 @@ internal class SyncEngine(
         engineJob = scope.launch {
             for (command in commandChannel) {
                 when (command) {
-                    is SyncCommand.Enqueue -> {
-                        operationQueue.enqueue(command.operation)
-                    }
-                    is SyncCommand.TriggerSync -> {
-                        drainQueue()
-                    }
-                    is SyncCommand.PullAndSync -> {
-                        pullAndSync()
-                    }
-                    is SyncCommand.Cancel -> {
-                        break
-                    }
+                    is SyncCommand.TriggerSync -> drainPending()
+                    is SyncCommand.PullAndSync -> pullAndSync()
+                    is SyncCommand.Cancel -> break
                 }
             }
         }
     }
 
-    private suspend fun drainQueue() {
-        val pending = operationQueue.dequeuePending()
+    private suspend fun drainPending() {
+        val allEntities = storageAdapter.queryAll()
+        val pending = allEntities.filter { it.hasPendingOperation }
         val total = pending.size
         var completed = 0
         var conflicts = 0
-        for (op in pending) {
-            _progress.emit(SyncProgress.Pushing(op.operationId, completed, total))
-            val result = processOperation(op)
+        for (entity in pending) {
+            _progress.emit(SyncProgress.Pushing(entity.operationId ?: "", completed, total))
+            val result = processEntity(entity)
             if (result) completed++ else conflicts++
         }
         _progress.emit(SyncProgress.Completed(completed, 0, conflicts))
@@ -87,44 +80,59 @@ internal class SyncEngine(
         _progress.emit(SyncProgress.Completed(0, pulled, 0))
     }
 
-    private suspend fun processOperation(op: SyncOperation): Boolean {
+    private suspend fun processEntity(entity: SyncEntity): Boolean {
+        val op = SyncOperation(
+            operationId = entity.operationId ?: Uuid.random().toString(),
+            entityId = entity.id,
+            type = entity.pendingOperationType!!,
+            attempt = entity.operationAttempt,
+            payload = entity.payload,
+        )
+
         return try {
             val result = transportAdapter.push(op)
             when (result) {
                 is PushResult.Success -> {
-                    val entity = storageAdapter.read(op.entityId)
-                    if (entity != null) {
-                        storageAdapter.write(entity.copy(syncState = SyncState.Synced, version = result.version))
-                    }
-                    operationQueue.markDone(op.operationId)
+                    storageAdapter.write(entity.copy(
+                        syncState = SyncState.Synced,
+                        version = result.version,
+                        pendingOperationType = null,
+                        operationId = null,
+                        operationAttempt = 0,
+                    ))
                     true
                 }
                 is PushResult.Conflict -> {
-                    val localEntity = storageAdapter.read(op.entityId)
+                    val localEntity = storageAdapter.read(entity.id)
                     val resolvedEntity = if (localEntity != null) {
                         conflictResolver.resolve(localEntity, result.remoteEntity)
                     } else {
                         result.remoteEntity
                     }
-                    storageAdapter.write(resolvedEntity.copy(syncState = SyncState.Synced))
-                    operationQueue.markDone(op.operationId)
+                    storageAdapter.write(resolvedEntity.copy(
+                        syncState = SyncState.Synced,
+                        pendingOperationType = null,
+                        operationId = null,
+                        operationAttempt = 0,
+                    ))
                     false
                 }
                 is PushResult.Error -> {
-                    val attempt = op.attempt + 1
+                    val attempt = entity.operationAttempt + 1
                     if (retryPolicy.shouldDeadLetter(attempt, result.error)) {
-                        operationQueue.markFailed(op.operationId, result.error)
-                        val entity = storageAdapter.read(op.entityId)
-                        if (entity != null) {
-                            storageAdapter.write(entity.copy(syncState = SyncState.Failed))
-                        }
-                        _progress.emit(SyncProgress.Error(op.operationId, result.error))
+                        storageAdapter.write(entity.copy(
+                            syncState = SyncState.Failed,
+                            pendingOperationType = null,
+                            operationId = null,
+                            operationAttempt = 0,
+                        ))
+                        _progress.emit(SyncProgress.Error(entity.operationId ?: "", result.error))
                     } else {
-                        val delay = retryPolicy.nextDelay(attempt)
-                        operationQueue.remove(op.operationId)
+                        storageAdapter.write(entity.copy(operationAttempt = attempt))
+                        val delayDuration = retryPolicy.nextDelay(attempt)
                         scope.launch {
-                            delay(delay)
-                            commandChannel.send(SyncCommand.Enqueue(op.copy(attempt = attempt)))
+                            delay(delayDuration)
+                            commandChannel.send(SyncCommand.TriggerSync)
                         }
                     }
                     false
@@ -133,20 +141,21 @@ internal class SyncEngine(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            val attempt = op.attempt + 1
+            val attempt = entity.operationAttempt + 1
             if (retryPolicy.shouldDeadLetter(attempt, SyncError.Unknown(e))) {
-                operationQueue.markFailed(op.operationId, SyncError.Unknown(e))
-                val entity = storageAdapter.read(op.entityId)
-                if (entity != null) {
-                    storageAdapter.write(entity.copy(syncState = SyncState.Failed))
-                }
-                _progress.emit(SyncProgress.Error(op.operationId, SyncError.Unknown(e)))
+                storageAdapter.write(entity.copy(
+                    syncState = SyncState.Failed,
+                    pendingOperationType = null,
+                    operationId = null,
+                    operationAttempt = 0,
+                ))
+                _progress.emit(SyncProgress.Error(entity.operationId ?: "", SyncError.Unknown(e)))
             } else {
-                val delay = retryPolicy.nextDelay(attempt)
-                operationQueue.remove(op.operationId)
+                storageAdapter.write(entity.copy(operationAttempt = attempt))
+                val delayDuration = retryPolicy.nextDelay(attempt)
                 scope.launch {
-                    delay(delay)
-                    commandChannel.send(SyncCommand.Enqueue(op.copy(attempt = attempt)))
+                    delay(delayDuration)
+                    commandChannel.send(SyncCommand.TriggerSync)
                 }
             }
             false

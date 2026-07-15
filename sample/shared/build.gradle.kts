@@ -57,7 +57,6 @@ kotlin {
             implementation("dev.esteki.kmos:sync-core")
             implementation("dev.esteki.kmos:sync-storage")
             implementation("dev.esteki.kmos:sync-network")
-            implementation("dev.esteki.kmos:sync-trigger")
 
             implementation(libs.compose.runtime)
             implementation(libs.compose.foundation)

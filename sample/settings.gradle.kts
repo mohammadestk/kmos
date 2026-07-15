@@ -38,7 +38,6 @@ includeBuild("..") {
         substitute(module("dev.esteki.kmos:sync-core")).using(project(":sync-core"))
         substitute(module("dev.esteki.kmos:sync-storage")).using(project(":sync-storage"))
         substitute(module("dev.esteki.kmos:sync-network")).using(project(":sync-network"))
-        substitute(module("dev.esteki.kmos:sync-trigger")).using(project(":sync-trigger"))
         substitute(module("dev.esteki.kmos:sync-testing")).using(project(":sync-testing"))
     }
 }
