@@ -36,12 +36,12 @@ kotlin {
             implementation(libs.ktor.client.cio)
         }
         commonMain.dependencies {
-            api(projects.syncCore)
-            api(libs.kotlinx.coroutines.core)
-            api(libs.kotlinx.serialization.json)
-            api(libs.ktor.client.core)
-            api(libs.ktor.client.content.negotiation)
-            api(libs.ktor.serialization.json)
+            implementation(projects.syncCore)
+            implementation(libs.kotlinx.coroutines.core)
+            implementation(libs.kotlinx.serialization.json)
+            implementation(libs.ktor.client.core)
+            implementation(libs.ktor.client.content.negotiation)
+            implementation(libs.ktor.serialization.json)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)

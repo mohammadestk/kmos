@@ -33,7 +33,7 @@ kotlin {
     }
 
     android {
-       namespace = "dev.esteki.kmos.shared"
+       namespace = "dev.esteki.kmos.sample.shared"
        compileSdk = libs.versions.android.compileSdk.get().toInt()
        minSdk = libs.versions.android.minSdk.get().toInt()
 
@@ -58,19 +58,19 @@ kotlin {
             implementation("dev.esteki.kmos:sync-storage")
             implementation("dev.esteki.kmos:sync-network")
             implementation("dev.esteki.kmos:sync-trigger")
-            
-            api(libs.compose.runtime)
-            api(libs.compose.foundation)
-            api(libs.compose.material3)
-            api(libs.compose.ui)
-            api(libs.compose.components.resources)
-            api(libs.compose.uiToolingPreview)
-            api(libs.androidx.lifecycle.viewmodelCompose)
-            api(libs.androidx.lifecycle.runtimeCompose)
-            api(libs.kotlinx.coroutines.core)
-            api(libs.kotlinx.datetime)
-            api(libs.kotlinx.serialization.json)
-            api(libs.koin.core)
+
+            implementation(libs.compose.runtime)
+            implementation(libs.compose.foundation)
+            implementation(libs.compose.material3)
+            implementation(libs.compose.ui)
+            implementation(libs.compose.components.resources)
+            implementation(libs.compose.uiToolingPreview)
+            implementation(libs.androidx.lifecycle.viewmodelCompose)
+            implementation(libs.androidx.lifecycle.runtimeCompose)
+            implementation(libs.kotlinx.coroutines.core)
+            implementation(libs.kotlinx.datetime)
+            implementation(libs.kotlinx.serialization.json)
+            implementation(libs.koin.core)
             implementation(libs.koin.compose)
             implementation(libs.koin.compose.viewmodel)
             implementation(libs.ktor.client.core)

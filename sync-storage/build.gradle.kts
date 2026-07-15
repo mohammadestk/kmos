@@ -40,10 +40,10 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
-            api(projects.syncCore)
-            api(libs.kotlinx.coroutines.core)
-            api(libs.kotlinx.datetime)
-            api(libs.room3.runtime)
+            implementation(projects.syncCore)
+            implementation(libs.kotlinx.coroutines.core)
+            implementation(libs.kotlinx.datetime)
+            implementation(libs.room3.runtime)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
@@ -51,16 +51,16 @@ kotlin {
             implementation(projects.syncTesting)
         }
         androidMain.dependencies {
-            api(libs.androidx.sqlite.bundled)
+            implementation(libs.androidx.sqlite.bundled)
         }
         jvmMain.dependencies {
-            api(libs.androidx.sqlite.bundled)
+            implementation(libs.androidx.sqlite.bundled)
         }
         iosMain.dependencies {
-            api(libs.androidx.sqlite.bundled)
+            implementation(libs.androidx.sqlite.bundled)
         }
         webMain.dependencies {
-            api(libs.androidx.sqlite.web)
+            implementation(libs.androidx.sqlite.web)
             implementation(projects.sqliteWasmWorker)
             implementation(projects.sqlJsWorker)
         }
