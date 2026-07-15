@@ -15,7 +15,10 @@ import dev.esteki.kmos.sync.storage.RoomStorageAdapter
 import dev.esteki.kmos.sync.storage.SyncDatabase
 import dev.esteki.kmos.sync.storage.createDatabase
 import io.ktor.client.HttpClient
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import org.koin.dsl.module
+import org.koin.plugin.module.dsl.viewModel
 
 val appModule = module {
     val databaseName = "sync.db"
@@ -28,12 +31,17 @@ val appModule = module {
     single<RetryPolicy> { ExponentialBackoffRetryPolicy() }
     single<ConflictResolver<SyncEntity>> { LastWriteWinsConflictResolver() }
     single<SyncClient> { params ->
-        SyncClient.build(params.get()) {
+
+        // TODO ("should be define as expected actual")
+        val dispatcher = CoroutineScope(Dispatchers.Default)
+
+        SyncClient.build(dispatcher) {
             storage(get())
             transport(get())
             retry(get())
         }
     }
     single { TodoRepository(get()) }
-    single { TodoViewModel(get(), get()) }
+
+    viewModel<TodoViewModel>()
 }

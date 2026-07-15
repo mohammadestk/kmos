@@ -32,6 +32,9 @@ kotlin {
     }
 
     sourceSets {
+        androidMain.dependencies {
+            implementation(libs.ktor.client.cio)
+        }
         commonMain.dependencies {
             api(projects.syncCore)
             api(libs.kotlinx.coroutines.core)
