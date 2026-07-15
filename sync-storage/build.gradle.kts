@@ -79,7 +79,8 @@ dependencies {
 val javadocJar = tasks.register<Jar>("javadocJar") {
     description = "Packages Dokka HTML documentation as a JAR for publication"
     archiveClassifier.set("javadoc")
-    from(tasks.named("dokkaHtml"))
+    dependsOn(tasks.named("dokkaGenerate"))
+    from(layout.buildDirectory.dir("dokka"))
 }
 
 afterEvaluate {
