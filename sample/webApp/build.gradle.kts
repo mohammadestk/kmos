@@ -9,12 +9,14 @@ plugins {
 kotlin {
     js {
         browser()
+        useEsModules()
         binaries.executable()
     }
 
     @OptIn(ExperimentalWasmDsl::class)
     wasmJs {
         browser()
+        useEsModules()
         binaries.executable()
     }
 

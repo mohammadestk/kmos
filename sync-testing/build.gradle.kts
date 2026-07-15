@@ -15,11 +15,13 @@ kotlin {
 
     js {
         browser()
+        useEsModules()
     }
 
     @OptIn(ExperimentalWasmDsl::class)
     wasmJs {
         browser()
+        useEsModules()
     }
 
     android {
