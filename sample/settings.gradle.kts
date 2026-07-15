@@ -1,4 +1,4 @@
-rootProject.name = "KmosSample"
+rootProject.name = "sample"
 enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
 
 pluginManagement {
