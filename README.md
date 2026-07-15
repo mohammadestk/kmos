@@ -27,11 +27,11 @@ Kmos is a **Kotlin Multiplatform SDK** for building offline-first applications w
 │                        Sync Client                               │
 │            ┌─────────────┼─────────────┐                         │
 │            ▼             ▼             ▼                         │
-│     Operation Queue  Retry Policy  Conflict Resolver             │
-│      (idempotent)   (backoff+jitter) (LWW/Custom)                │
+│       SyncEngine   Retry Policy  Conflict Resolver               │
+│     (entity-based) (backoff+jitter) (LWW/Custom)                │
 ├──────────────────────────────────────────────────────────────────┤
 │     StorageAdapter                TransportAdapter               │
-│        (Room 3)                       (Ktor)                     │
+│        (Room 3)                  (Ktor / REST API)               │
 └──────────────────────────────────────────────────────────────────┘
 ```
 
@@ -44,12 +44,13 @@ Kmos is a **Kotlin Multiplatform SDK** for building offline-first applications w
 | **Offline-First** | Sync runs on foreground, manual trigger, or optional interval |
 | **6 Platforms** | Android, iOS, JVM, Desktop, JS, WasmJS — one implementation |
 | **Thread-Safe** | Single-writer Channel-driven architecture — no locks needed |
-| **Idempotent Retry** | Exponential backoff with jitter, dead-letter path |
+| **Entity-Based Ops** | Operation tracking merged into SyncEntity — no separate queue |
 | **Conflict Resolution** | Last-Write-Wins default, custom resolver support |
 | **Typed Mapping** | `SyncMapper<T>` for clean domain ↔ entity conversion |
 | **Reactive** | `observeAll()` re-emits on every storage change |
 | **Pluggable** | Storage & transport adapters with contract test suites |
 | **Room 3** | KMP-native storage reference implementation |
+| **Real REST API** | Network adapter ships with a [restful-api.dev](https://restful-api.dev) reference implementation |
 
 ---
 
@@ -151,7 +152,8 @@ User Action
 SyncRepository.upsert()
     │
     ▼
-StorageAdapter.write() + OperationQueue.enqueue()
+StorageAdapter.write()
+  (sets pendingOperationType, operationId)
     │
     ▼
 TransportAdapter.push()
@@ -164,6 +166,16 @@ TransportAdapter.push()
 StorageAdapter.write()  RetryPolicy
 (state = Synced)    (backoff/retry)
 ```
+
+### SyncEntity Operation Fields
+
+Operations are tracked directly on `SyncEntity` — no separate queue:
+
+| Field | Type | Purpose |
+|-------|------|---------|
+| `pendingOperationType` | `OperationType?` | `Create`, `Update`, or `Delete` — `null` when synced |
+| `operationId` | `String?` | Idempotency key for the pending operation |
+| `operationAttempt` | `Int` | Retry counter, resets on success or dead-letter |
 
 ---
 
@@ -217,6 +229,47 @@ val client = SyncClient.build(scope) {
 }
 ```
 
+### TransportAdapter
+
+The `KtorTransportAdapter` maps SDK operations to REST endpoints:
+
+| Operation | HTTP | Endpoint |
+|-----------|------|----------|
+| Push (Create) | `POST` | `/objects` |
+| Push (Update) | `PUT` | `/objects/{id}` |
+| Push (Delete) | `DELETE` | `/objects/{id}` |
+| Pull | `GET` | `/objects` |
+
+```kotlin
+val httpClient = HttpClient {
+    install(ContentNegotiation) {
+        json(Json { ignoreUnknownKeys = true })
+    }
+    install(Logging) {
+        level = LogLevel.ALL
+    }
+}
+
+val transport = KtorTransportAdapter(
+    httpClient = httpClient,
+    baseUrl = "https://api.restful-api.dev",
+)
+```
+
+Custom endpoint routing via `SyncEndpoints`:
+
+```kotlin
+val transport = KtorTransportAdapter(
+    httpClient = httpClient,
+    baseUrl = "https://my-api.com",
+    endpoints = SyncEndpoints(
+        pushUrl = { op -> "/api/v1/sync" },
+        pullUrl = { cursor -> "/api/v1/sync/pull" },
+        singleEntityUrl = { id -> "/api/v1/objects/$id" },
+    ),
+)
+```
+
 ---
 
 ## Development
@@ -245,17 +298,11 @@ val client = SyncClient.build(scope) {
 # Core engine tests
 ./gradlew :sync-core:jvmTest
 
-# Trigger tests
-./gradlew :sync-trigger:jvmTest
+# Storage tests
+./gradlew :sync-storage:jvmTest
 
-# Storage compilation
-./gradlew :sync-storage:compileKotlinJvm
-
-# Network compilation
-./gradlew :sync-network:compileKotlinJvm
-
-# Sample app tests
-./gradlew :sample:jvmTest
+# Network tests
+./gradlew :sync-network:jvmTest
 ```
 
 ---
@@ -266,8 +313,7 @@ val client = SyncClient.build(scope) {
 kmos/
 ├── sync-core/                  # Core engine, interfaces, models, SyncClient, DefaultSyncTrigger
 ├── sync-storage/               # Room 3 storage adapter
-├── sync-network/               # Ktor transport adapter
-├── sync-trigger/               # (empty — DefaultSyncTrigger now in sync-core)
+├── sync-network/               # Ktor transport adapter (restful-api.dev reference)
 ├── sync-testing/               # Test utilities (not published)
 ├── sample/                     # Demo apps
 │   ├── shared/                 # Shared UI code
@@ -310,6 +356,7 @@ Sync in Kmos only runs while the app process is alive:
 - [Room 3](https://developer.android.com/jetpack/androidx/releases/room)
 - [Ktor](https://ktor.io/)
 - [Koin](https://insert-koin.io/)
+- [restful-api.dev](https://restful-api.dev) — demo REST API used by the network adapter
 
 ---
 
