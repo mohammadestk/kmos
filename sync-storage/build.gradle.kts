@@ -90,7 +90,7 @@ afterEvaluate {
             pom {
                 name.set("KMOS - Sync Storage")
                 description.set("Kotlin Multiplatform Offline-First Sync SDK - Room 3 storage adapter")
-                url.set("https://github.com/mohammadestk/Kmos")
+                url.set("https://github.com/mohammadestk/kmos")
                 licenses {
                     license {
                         name.set("The Apache License, Version 2.0")

@@ -88,6 +88,10 @@ kotlin {
         jsMain.dependencies {
             implementation(libs.wrappers.browser)
         }
+        webMain.dependencies {
+//            api("dev.esteki.kmos:sqlite-wasm-worker")
+//            api("dev.esteki.kmos:sql-js-worker")
+        }
     }
 }
 

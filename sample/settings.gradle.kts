@@ -39,6 +39,8 @@ includeBuild("..") {
         substitute(module("dev.esteki.kmos:sync-storage")).using(project(":sync-storage"))
         substitute(module("dev.esteki.kmos:sync-network")).using(project(":sync-network"))
         substitute(module("dev.esteki.kmos:sync-testing")).using(project(":sync-testing"))
+//        substitute(module("dev.esteki.kmos:sql-js-worker")).using(project(":sql-js-worker"))
+//        substitute(module("dev.esteki.kmos:sqlite-wasm-worker")).using(project(":sqlite-wasm-worker"))
     }
 }
 

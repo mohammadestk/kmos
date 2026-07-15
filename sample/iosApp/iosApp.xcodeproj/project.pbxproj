@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXFileReference section */
-		E1372C68A886C91D81B9BB0A /* Kmos.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Kmos.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		E1372C68A886C91D81B9BB0A /* kmos.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = kmos.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -59,7 +59,7 @@
 		B9F0C9A239C059BC93736C9A /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				E1372C68A886C91D81B9BB0A /* Kmos.app */,
+				E1372C68A886C91D81B9BB0A /* kmos.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -87,7 +87,7 @@
 			packageProductDependencies = (
 			);
 			productName = iosApp;
-			productReference = E1372C68A886C91D81B9BB0A /* Kmos.app */;
+			productReference = E1372C68A886C91D81B9BB0A /* kmos.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */

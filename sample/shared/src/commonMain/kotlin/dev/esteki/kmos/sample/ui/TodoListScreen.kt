@@ -34,7 +34,7 @@ fun TodoListScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Kmos Todo Sync") },
+                title = { Text("kmos Todo Sync") },
                 actions = {
                     TextButton(onClick = { viewModel.syncNow() }) {
                         Text("Sync")
