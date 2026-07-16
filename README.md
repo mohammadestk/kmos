@@ -42,7 +42,7 @@ Kmos is a **Kotlin Multiplatform SDK** for building offline-first applications w
 | Feature | Description |
 |---------|-------------|
 | **Offline-First** | Sync runs on foreground, manual trigger, or optional interval |
-| **6 Platforms** | Android, iOS, JVM, Desktop, JS, WasmJS — one implementation |
+| **6 Platforms** | Android, iOS, JVM, Desktop, JS, WasmJS — one implementation *(Web in progress)* |
 | **Thread-Safe** | Single-writer Channel-driven architecture — no locks needed |
 | **Entity-Based Ops** | Operation tracking merged into SyncEntity — no separate queue |
 | **Conflict Resolution** | Last-Write-Wins default, custom resolver support |
