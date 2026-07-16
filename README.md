@@ -50,7 +50,7 @@ Kmos is a **Kotlin Multiplatform SDK** for building offline-first applications w
 | **Reactive** | `observeAll()` re-emits on every storage change |
 | **Pluggable** | Storage & transport adapters with contract test suites |
 | **Room 3** | KMP-native storage reference implementation |
-| **Real REST API** | Network adapter ships with a [restful-api.dev](https://restful-api.dev) reference implementation |
+| **Backend-Agnostic** | Implement `SyncApiProtocol` for any REST backend |
 
 ---
 
@@ -231,14 +231,36 @@ val client = SyncClient.build(scope) {
 
 ### TransportAdapter
 
-The `KtorTransportAdapter` maps SDK operations to REST endpoints:
+The `KtorTransportAdapter` maps SDK operations to your backend's REST endpoints. Implement `SyncApiProtocol` to define your wire format:
 
-| Operation | HTTP | Endpoint |
-|-----------|------|----------|
-| Push (Create) | `POST` | `/objects` |
-| Push (Update) | `PUT` | `/objects/{id}` |
-| Push (Delete) | `DELETE` | `/objects/{id}` |
-| Pull | `GET` | `/objects` |
+```kotlin
+class MyApiProtocol : SyncApiProtocol {
+    override fun pushUrl(op: SyncOperation): String = when (op.type) {
+        OperationType.Create -> "/api/v1/sync"
+        OperationType.Update -> "/api/v1/sync/${op.entityId}"
+        OperationType.Delete -> "/api/v1/sync/${op.entityId}"
+    }
+
+    override fun pullUrl(cursor: String?): String = buildString {
+        append("/api/v1/sync")
+        if (cursor != null) append("?cursor=$cursor")
+    }
+
+    override suspend fun buildPushRequest(op: SyncOperation): HttpRequestBuilder.() -> Unit = {
+        setBody(MyPushRequest(op.entityId, op.type.name, op.payload.decodeToString()))
+    }
+
+    override suspend fun parsePushResponse(response: HttpResponse): PushResult {
+        // Extract version from server response, handle conflicts, etc.
+    }
+
+    override suspend fun parsePullResponse(response: HttpResponse): PullResult {
+        // Parse response body into entities and pagination cursor
+    }
+}
+```
+
+Configure the transport adapter with your protocol:
 
 ```kotlin
 val httpClient = HttpClient {
@@ -252,21 +274,8 @@ val httpClient = HttpClient {
 
 val transport = KtorTransportAdapter(
     httpClient = httpClient,
-    baseUrl = "https://api.restful-api.dev",
-)
-```
-
-Custom endpoint routing via `SyncEndpoints`:
-
-```kotlin
-val transport = KtorTransportAdapter(
-    httpClient = httpClient,
-    baseUrl = "https://my-api.com",
-    endpoints = SyncEndpoints(
-        pushUrl = { op -> "/api/v1/sync" },
-        pullUrl = { cursor -> "/api/v1/sync/pull" },
-        singleEntityUrl = { id -> "/api/v1/objects/$id" },
-    ),
+    baseUrl = "https://your-backend-api.com",
+    protocol = MyApiProtocol(),
 )
 ```
 
@@ -356,7 +365,6 @@ Sync in Kmos only runs while the app process is alive:
 - [Room 3](https://developer.android.com/jetpack/androidx/releases/room)
 - [Ktor](https://ktor.io/)
 - [Koin](https://insert-koin.io/)
-- [restful-api.dev](https://restful-api.dev) — demo REST API used by the network adapter
 
 ---
 

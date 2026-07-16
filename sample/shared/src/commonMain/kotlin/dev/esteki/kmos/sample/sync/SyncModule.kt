@@ -11,6 +11,7 @@ import dev.esteki.kmos.sync.core.SyncClient
 import dev.esteki.kmos.sync.core.TransportAdapter
 import dev.esteki.kmos.sync.core.model.SyncEntity
 import dev.esteki.kmos.sync.network.KtorTransportAdapter
+import dev.esteki.kmos.sync.network.SyncApiProtocol
 import dev.esteki.kmos.sync.storage.RoomStorageAdapter
 import dev.esteki.kmos.sync.storage.SyncDatabase
 import dev.esteki.kmos.sync.storage.createDatabase
@@ -41,11 +42,12 @@ val appModule = module {
             level = LogLevel.ALL
         }
     }
-    val baseUrl = "https://api.restful-api.dev"
+    val baseUrl = "https://your-backend-api.com"
 
     single<SyncDatabase> { createDatabase(databaseName) }
     single<StorageAdapter> { RoomStorageAdapter(get()) }
-    single<TransportAdapter> { KtorTransportAdapter(httpClient, baseUrl) }
+    single<SyncApiProtocol> { SampleApiProtocol() }
+    single<TransportAdapter> { KtorTransportAdapter(httpClient, baseUrl, get()) }
     single<RetryPolicy> { ExponentialBackoffRetryPolicy() }
     single<ConflictResolver<SyncEntity>> { LastWriteWinsConflictResolver() }
     single<SyncClient> {

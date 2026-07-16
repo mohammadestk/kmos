@@ -107,7 +107,7 @@ What consumers interact with (everything else is `internal`):
 
 **sync-network:**
 - `KtorTransportAdapter` — Ktor-backed `TransportAdapter`
-- `SyncEndpoints` — customizable URL routing
+- `SyncApiProtocol` — user-defined wire format interface
 
 **sync-testing:**
 - `FakeStorageAdapter`, `FakeTransportAdapter`, `MockTransportAdapter` — test doubles
