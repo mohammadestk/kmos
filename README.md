@@ -292,10 +292,10 @@ val transport = KtorTransportAdapter(
 # Desktop (JVM)
 ./gradlew :sample:desktopApp:run
 
-# Web (Wasm — modern browsers)
+# Web (Wasm — modern browsers) [in progress]
 ./gradlew :sample:webApp:wasmJsBrowserDevelopmentRun
 
-# Web (JS — older browsers)
+# Web (JS — older browsers) [in progress]
 ./gradlew :sample:webApp:jsBrowserDevelopmentRun
 
 # iOS — open sample/iosApp/ in Xcode
@@ -328,7 +328,7 @@ kmos/
 │   ├── shared/                 # Shared UI code
 │   ├── androidApp/             # Android app
 │   ├── desktopApp/             # Desktop app
-│   ├── webApp/                 # Web app
+│   ├── webApp/                 # Web app (in progress)
 │   └── iosApp/                 # iOS app
 ├── specs/                      # Design specifications
 └── gradle/                     # Build configuration
